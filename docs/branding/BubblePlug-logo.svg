@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc"><title id="title">BubblePlug</title><desc id="desc">Two reversed half knobs joined to a fader inside an iridescent soap bubble.</desc><defs>
+  <radialGradient id="glass" cx=".32" cy=".19" r=".85"><stop stop-color="#286bbe"/><stop offset=".48" stop-color="#102c63"/><stop offset=".8" stop-color="#071a3e"/><stop offset="1" stop-color="#2351a0"/></radialGradient>
+  <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#59efff"/><stop offset=".21" stop-color="#5485ff"/><stop offset=".39" stop-color="#f6c6fa"/><stop offset=".55" stop-color="#9464ff"/><stop offset=".73" stop-color="#35e7fb"/><stop offset=".88" stop-color="#e69bee"/><stop offset="1" stop-color="#fff0c5"/></linearGradient>
+  <linearGradient id="knob" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#79f5ff"/><stop offset=".35" stop-color="#12c3f9"/><stop offset="1" stop-color="#0563d8"/></linearGradient>
+  <linearGradient id="pearl" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#fff"/><stop offset=".55" stop-color="#e8f8ff"/><stop offset="1" stop-color="#9dc4e2"/></linearGradient>
+  <linearGradient id="rail" x1="0" y1="0" x2="1" y2=".1"><stop stop-color="#0b79e9"/><stop offset=".5" stop-color="#59e9ff"/><stop offset="1" stop-color="#1476ed"/></linearGradient>
+  <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="white" stop-opacity=".95"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
+  <filter id="depth" x="-30%" y="-20%" width="160%" height="150%"><feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#000b24" flood-opacity=".6"/></filter>
+  <filter id="halo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+</defs><g id="bubbleplug-mark">
+  <circle cx="256" cy="256" r="235" fill="url(#glass)"/>
+  <circle cx="256" cy="256" r="234" fill="none" stroke="url(#rainbow)" stroke-width="9" opacity=".6" filter="url(#halo)"/>
+  <circle cx="256" cy="256" r="234" fill="none" stroke="url(#rainbow)" stroke-width="3.5"/>
+  <circle cx="256" cy="256" r="228" fill="none" stroke="#73bcff" stroke-opacity=".35" stroke-width="1"/>
+  <path d="M70 127 C113 61 180 33 224 36 C174 50 122 78 70 127Z" fill="url(#shine)" opacity=".92"/>
+  <path d="M363 59 C396 71 432 103 448 135 C416 106 396 91 363 59Z" fill="url(#shine)" opacity=".75"/>
+  <path d="M94 426 Q260 539 428 415" fill="none" stroke="url(#rainbow)" stroke-width="3" opacity=".65"/>
+  <g filter="url(#depth)">
+    <path d="M253 107 A60 60 0 0 0 253 227Z" fill="url(#knob)"/>
+    <path d="M250 108 A59 59 0 0 0 250 226" fill="none" stroke="url(#pearl)" stroke-width="13" stroke-linecap="round"/>
+    <path d="M215 147 L236 168" fill="none" stroke="url(#pearl)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M253 243 A79 79 0 0 0 253 401Z" fill="url(#knob)"/>
+    <path d="M250 244 A78 78 0 0 0 250 400" fill="none" stroke="url(#pearl)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M198 288 L232 322" fill="none" stroke="url(#pearl)" stroke-width="14" stroke-linecap="round"/>
+    <rect x="253" y="94" width="46" height="326" rx="23" fill="#062454" stroke="url(#rail)" stroke-width="8"/>
+    <rect x="251" y="149" width="105" height="59" rx="18" fill="url(#pearl)" stroke="#effaff" stroke-width="1"/>
+    <rect x="270" y="172" width="68" height="12" rx="6" fill="url(#knob)" stroke="#87bbdf" stroke-width="1"/>
+  </g>
+</g></svg>

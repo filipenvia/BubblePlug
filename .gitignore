@@ -1,0 +1,39 @@
+# macOS / Xcode / SwiftPM
+.DS_Store
+.AppleDouble
+.LSOverride
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+
+# Compiled app, validator SDK, module cache, and generated iconset previews
+/build/
+/dist/
+
+# Local Ableton / PlugSpot data and logs
+*.als
+*.alc
+*.asd
+*.log
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+bridge.sock
+bridge.lock
+pending-ableton-export.json
+ableton-export-result.json
+user-quit.request
+
+# Historical logo explorations that were not approved for the product
+/docs/branding/BubblePlug-BP-mark.png
+/docs/branding/BubblePlug-BP-proposal.png
+/docs/branding/BubblePlug-logo-controls-proposals.png
+/docs/branding/BubblePlug-logo-insert-proposals.png
+/docs/branding/BubblePlug-logo-music-proposals.png
+/docs/branding/BubblePlug-logo-proposals.png
+/docs/branding/BubblePlug-logo-rack-chain.png
+/docs/branding/BubblePlug-logo-simple-proposals.png
+/docs/branding/BubblePlug-logo-patch-bay.png
+/docs/branding/BubblePlug-logo-insert-socket.png
