@@ -23,7 +23,19 @@ work; items may change as manual Ableton testing reveals issues.
 
 ## After the first release
 
-- [ ] Improve plugin format classification and plugin-family variant handling.
+- [ ] Add VST2 plugin discovery and loading.
+- [ ] Add CLAP plugin discovery and loading.
+- [ ] Add AU and Component support, including AUX/Component classification where
+  applicable to the host and plug-in format.
+- [ ] Improve plugin format classification and plugin-family variant handling
+  across supported formats.
+- [ ] Show the plug-in preset name in Mixer when the host/plugin makes it
+  available; remove the current preset-name display because its values are not
+  reliable enough.
+- [ ] Investigate a Logic Pro edition or integration, with a clearly defined
+  feature scope and macOS compatibility plan.
+- [ ] Investigate a Windows edition, including a Windows-native host integration
+  and installer. The current app and Ableton Remote Script are macOS-specific.
 - [ ] Explore an opt-in community artwork index with exact plugin identity,
   review, copyright and privacy safeguards.
 - [ ] Add release automation for building and attaching macOS artifacts and
@@ -35,6 +47,6 @@ work; items may change as manual Ableton testing reveals issues.
 
 - Plugin validation before loading. Users chose to remove it because it was
   slow and produced false failures.
-- VST2, CLAP, Audio Unit and Component catalog support. The initial catalog is
-  VST3-focused.
+- VST2, CLAP, Audio Unit and Component support are future roadmap work; the
+  initial catalog is VST3-focused.
 - Sharing plugin artwork automatically without explicit user consent.
