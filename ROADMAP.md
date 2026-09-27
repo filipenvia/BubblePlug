@@ -19,6 +19,8 @@ work; items may change as manual Ableton testing reveals issues.
   open-source.
 - [ ] Prepare a screenshot-based setup and usage guide, with personal project
   names and paths removed from screenshots.
+- [ ] Remove the current preset label from Mixer. Do not show a guessed,
+  default, or otherwise unverified preset name in the first release.
 
 ## After the first release
 
@@ -28,9 +30,7 @@ work; items may change as manual Ableton testing reveals issues.
   applicable to the host and plug-in format.
 - [ ] Improve plugin format classification and plugin-family variant handling
   across supported formats.
-- [ ] Show the plug-in preset name in Mixer when the host/plugin makes it
-  available; remove the current preset-name display because its values are not
-  reliable enough.
+- [ ] Show the real plug-in preset name in Mixer.
 - [ ] Investigate a Logic Pro edition or integration, with a clearly defined
   feature scope and macOS compatibility plan.
 - [ ] Investigate a Windows edition, including a Windows-native host integration

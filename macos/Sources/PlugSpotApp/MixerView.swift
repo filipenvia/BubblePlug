@@ -267,12 +267,6 @@ private struct MixerChannelStrip: View {
                         Text(device.name)
                             .lineLimit(2)
                             .foregroundStyle(device.className == "PluginDevice" ? .primary : .secondary)
-                        if let presetName = device.presetName, !presetName.isEmpty {
-                            Text("Preset · \(presetName)")
-                                .lineLimit(2)
-                                .foregroundStyle(.tertiary)
-                                .padding(.leading, 5)
-                        }
                         ForEach(Array(device.chains.enumerated()), id: \.offset) { _, chain in
                             Text("↳ \(chain.name)")
                                 .foregroundStyle(.secondary)
