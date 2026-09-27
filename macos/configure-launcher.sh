@@ -2,13 +2,15 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SUPPORT_DIR="$HOME/Library/Application Support/PlugSpot"
+APP_PATH="${PLUGSPOT_APP_PATH:-$ROOT_DIR/build/PlugSpot.app}"
+WORKER_SOURCE="${PLUGSPOT_WORKER_SOURCE:-$ROOT_DIR/macos/ableton-export-worker.py}"
 mkdir -p "$SUPPORT_DIR"
-cp "$ROOT_DIR/macos/ableton-export-worker.py" "$SUPPORT_DIR/ableton-export-worker.py"
+cp "$WORKER_SOURCE" "$SUPPORT_DIR/ableton-export-worker.py"
 chmod 700 "$SUPPORT_DIR/ableton-export-worker.py"
 cat > "$SUPPORT_DIR/launch.sh" <<EOF_LAUNCHER
 #!/bin/sh
 set -u
-APP="$ROOT_DIR/build/PlugSpot.app"
+APP="$APP_PATH"
 SOCKET="\$HOME/Library/Application Support/PlugSpot/bridge.sock"
 PENDING="\$HOME/Library/Application Support/PlugSpot/pending-ableton-export.json"
 RESULT="\$HOME/Library/Application Support/PlugSpot/ableton-export-result.json"
@@ -72,6 +74,11 @@ if [ -f "\$PENDING" ]; then
   fi
   rm -f "\$PENDING"
   if [ "\$APPLY_STATUS" -ne 0 ]; then
+    /usr/bin/python3 "\$WORKER" --recover >> "\$LOG" 2>&1
+    RECOVERY_STATUS=\$?
+    if [ "\$RECOVERY_STATUS" -ne 0 ]; then
+      osascript -e 'display notification "Collections export needs recovery. Keep Live closed and inspect launcher.log." with title "PlugSpot"' >/dev/null 2>&1 || true
+    fi
     osascript -e 'display notification "Export stopped safely. Open PlugSpot after Live restarts for details." with title "PlugSpot"' >/dev/null 2>&1 || true
   fi
   open -b com.ableton.live >/dev/null 2>&1 || true

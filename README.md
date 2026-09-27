@@ -14,11 +14,15 @@ editable SVG are in [docs/branding](docs/branding/README.md).
 The technical project name remains **PlugSpot** for existing launcher, Remote
 Script, bundle identifier and user-data compatibility.
 
+See the [user guide](docs/USER_GUIDE.md), [changelog](CHANGELOG.md), and
+[roadmap](ROADMAP.md). This repository is pre-release; the package currently
+available from a local build is for testing and is not signed or notarized.
+
 ## Current state
 
 Implemented: VST3 catalog and search, provisional channel-variant grouping,
-Favorites, Recent, editable color categories, Vendors, Cards/List, local plugin
-artwork, a temporary chain queue, the floating bubble and its settings, and
+Favorites, Recent, editable color categories, Manufacturers, Cards/List, partial local plugin
+artwork, a temporary chain queue and saved Chain Sets, the floating bubble and its settings, and
 Ableton Collections import/export. Mixer view can display a Live Set and save
 recovery snapshots outside Live; saved snapshots can be selected and viewed
 offline.
@@ -29,6 +33,18 @@ request; loading a faulty plugin can still crash Live. Complete plugin-internal
 state such as a Kontakt library/instrument is not guaranteed to be available in
 the snapshot.
 
+Plugin artwork uses exact VST3 snapshots and clearly named local image files.
+On first setup, BubblePlug opens missing VST3 editors one at a time in a bundled
+image helper, captures its window with BubblePlug's Screen Recording permission,
+and caches the thumbnail. This does not add
+tracks to Live. Later launches process only missing or new plugins. Images can
+also be assigned in **Missing Images**.
+
+**Artwork coverage is incomplete and blocks release readiness.** Every catalog
+plugin needs an image before the visual library is considered ready. At the same
+time, artwork preparation must remain lightweight during music production: no
+repeated full scans, no parallel plugin instantiation, and bounded image memory.
+
 ## Requirements
 
 - macOS 13 or later;
@@ -37,21 +53,39 @@ the snapshot.
 - PlugSpot Remote Script installed as a Live Control Surface;
 - VST3 plugins indexed by Live.
 
-This working copy builds an **x86_64** app for the Intel development Mac. An
-Apple Silicon or Universal build, signing, notarization, and a distributable
-installer are still pending.
+The build script supports **x86_64**, **arm64**, and **Universal** app bundles.
+The default build cross-compiles both architectures into `build/PlugSpot.app`;
+single-architecture builds are written to `build/PlugSpot-x86_64.app` or
+`build/PlugSpot-arm64.app`. The `arm64` slice can be compiled on the Intel
+development Mac, but it has not been run on Apple Silicon hardware. Signing and
+notarization for public distribution are still pending; a local `.pkg` can be
+built for clean-install testing.
 
-## Build and install
+## Local build and Ableton integration setup
 
 ```sh
 ./macos/build-app.sh
+./macos/build-app.sh x86_64
+./macos/build-app.sh arm64
+./macos/build-pkg.sh
 ./macos/install-launcher.sh
 ```
 
-The installer copies the Remote Script to the default Ableton User Library and
-configures the local launcher. Restart Live after updating the Remote Script.
+The no-argument build produces the Universal app. Use `x86_64` or `arm64` to
+build one architecture for diagnosis.
+
 In Live, select **PlugSpot** under **Settings → Link, Tempo & MIDI → Control
 Surface** if it is not already selected.
+
+`build-pkg.sh` creates `build/BubblePlug-0.1.0.pkg`. The package installs the
+Universal app to `/Applications/BubblePlug.app`, copies the PlugSpot Remote
+Script into the logged-in user's default Ableton User Library, and configures
+the lifecycle launcher and export worker. Restart Live after installation so
+it loads the Control Surface. The package is unsigned for public distribution
+and is currently intended for local clean-install testing.
+
+`install-launcher.sh` remains available for development checkouts; it installs
+the Remote Script and launcher against `build/PlugSpot.app`.
 
 The app can also be started from `build/PlugSpot.app` after Live has crashed to
 inspect existing mixer snapshots. They are stored in
@@ -73,11 +107,32 @@ inspect existing mixer snapshots. They are stored in
   Mac; gather the real CPU/RAM measurements reserved for the GitHub report.
 - Generalize VST2/VST3/CLAP/AU classification and plugin-family variant
   grouping; the current catalog is VST3-only and grouping is provisional.
-- Reconcile the six-category color mapping with unrestricted local categories;
-  free-form user tags and removal of obsolete imported labels also remain open.
+- The local category limit is six, matching Ableton's available Collection
+  colors. Free-form user tags and removal of obsolete imported labels remain
+  open.
+- Chain Sets can be saved locally, renamed, removed, and loaded back into the
+  chain queue. Clicking a set expands its ordered plugins in place; its chain
+  can be edited and saved again. Chain Sets can also be exported as Ableton
+  `.adg` racks. Export currently supports serial audio-effect chains and an
+  instrument followed by audio effects. MIDI-effect racks, multiple serial
+  instruments, and private plugin preset/state are not supported. The generated
+  files still need an end-to-end load check in Live before compatibility is
+  considered verified.
 - Verify the destructive Ableton Collections export end to end.
-- Finish Intel/Apple Silicon packaging, choose a license, and decide signing and
-  notarization.
+- Run the Universal app's arm64 slice on Apple Silicon hardware and collect
+  volunteer feedback; choose a license and finish signing, notarization, and
+  installer packaging.
+
+## Apple Silicon testers wanted
+
+BubblePlug can now be built as a Universal app, but the `arm64` build has not
+been run on an Apple Silicon Mac. We do not have Apple Silicon hardware for
+that check and would appreciate volunteer feedback. If you can try it, please
+report your Mac chip, macOS version, Ableton Live version, whether the app
+starts and connects, and which plugin loading or mixer flows you exercised.
+Please include reproduction steps for failures and remove personal paths or
+other private information from logs. Use the
+[Apple Silicon feedback issue template](.github/ISSUE_TEMPLATE/apple-silicon-feedback.md).
 
 See [PlugSpot_PROJECT_PLAN.md](PlugSpot_PROJECT_PLAN.md) for the implementation
 audit and ordered remaining work. Architecture, development notes, and the

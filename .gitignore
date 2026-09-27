@@ -12,6 +12,9 @@ xcuserdata/
 /build/
 /dist/
 
+# Local scan reports and performance captures can contain user-specific data.
+/artifacts/
+
 # Local Ableton / PlugSpot data and logs
 *.als
 *.alc

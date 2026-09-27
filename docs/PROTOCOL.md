@@ -68,6 +68,8 @@ ficheiros localmente; consulta e escrita dos snapshots não são métodos IPC.
 - cada pedido tem deadline no cliente e resposta correlacionada;
 - comandos que alteram o Live (`load_plugin`) voltam a ler a track seleccionada
   imediatamente antes da inserção;
+- o scan de imagens carrega um plugin de cada vez, recusa começar durante a
+  reprodução e remove a track temporária ao concluir ou pausar;
 - a resposta do load inclui a track efectiva para tornar explícito o destino;
 - pedidos com versão desconhecida ou método desconhecido falham sem side effect;
 - limitar tamanho do frame; `get_plugins` é paginado para evitar respostas

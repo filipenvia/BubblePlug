@@ -47,6 +47,47 @@ struct PlugSpotAudioMark: View {
     }
 }
 
+struct BubbleMonogram: View {
+    let initials: String
+    let width: CGFloat
+    let height: CGFloat
+
+    private var diameter: CGFloat { min(width * 0.78, height * 0.88) }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(
+                    colors: [PlugSpotPalette.blue.opacity(0.44), PlugSpotPalette.violet.opacity(0.23), PlugSpotPalette.cyan.opacity(0.12)],
+                    center: .init(x: 0.34, y: 0.28), startRadius: 0, endRadius: diameter * 0.7
+                ))
+                .overlay {
+                    Circle().strokeBorder(
+                        AngularGradient(colors: [PlugSpotPalette.cyan, .white.opacity(0.9), PlugSpotPalette.violet, PlugSpotPalette.blue, PlugSpotPalette.cyan], center: .center),
+                        lineWidth: max(1.5, diameter * 0.055)
+                    )
+                }
+                .overlay(alignment: .topLeading) {
+                    Ellipse()
+                        .fill(.white.opacity(0.64))
+                        .frame(width: diameter * 0.25, height: diameter * 0.08)
+                        .rotationEffect(.degrees(-38))
+                        .offset(x: diameter * 0.23, y: diameter * 0.13)
+                }
+                .shadow(color: PlugSpotPalette.cyan.opacity(0.30), radius: diameter * 0.12)
+            Text(initials)
+                .font(.system(size: diameter * (initials.count > 1 ? 0.38 : 0.46), weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+                .shadow(color: PlugSpotPalette.canvas.opacity(0.8), radius: 2)
+        }
+        .frame(width: diameter, height: diameter)
+        .frame(width: width, height: height)
+        .accessibilityLabel(initials)
+    }
+}
+
 struct BubblePlugSurface: ViewModifier {
     func body(content: Content) -> some View {
         content

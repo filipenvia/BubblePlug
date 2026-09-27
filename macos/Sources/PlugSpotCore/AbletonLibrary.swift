@@ -11,7 +11,6 @@ public struct LoadPluginResult: Codable, Sendable, Equatable {
         case trackName = "track_name"
     }
 }
-
 public enum AbletonLibraryError: Error, LocalizedError, Sendable {
     case bridge(code: String, message: String, retryable: Bool)
     case invalidResponse

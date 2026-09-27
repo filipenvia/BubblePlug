@@ -19,35 +19,38 @@ used as a compiler check; Live behavior was not exercised in this review.
   structured error response. The bridge now responds at seven seconds and the
   client waits ten seconds.
 
+## Findings addressed after the initial review
+
+- **Six categories are an accepted V1 limit.** The user confirmed that local
+  categories should share Ableton's six color slots; README and project plan now
+  state this as a decision rather than an open issue.
+- **Mixer file work moved off Live's callback.** The callback now copies the
+  mixer data and queues plain values; a background worker encodes and writes
+  them. Live API reads still happen on Live's own callback and need manual
+  performance validation.
+- **Collections export now has a durable recovery journal.** The worker records
+  backup paths before changing either Ableton file; the launcher restores those
+  files if export fails, and the next export attempt recovers any journal left
+  behind. Live validation remains required.
+- **PlugSpot library imports now use one SQLite transaction.** Any failure
+  rolls back categories, favorites, recents and labels together.
+- **Dead plugin validation code was removed.** Existing local databases are not
+  destructively migrated; any old validation table remains unused.
+
 ## Remaining findings
 
 ### High priority
 
-- **Category model is still limited to six local categories.** The UI, SQLite
-  constraint, and JSON exporter all impose Ableton's six color slots. The README
-  itself lists reconciling this with unrestricted local categories as unfinished.
-  Local categories need independent colors/IDs; export can then map a chosen
-  subset to Ableton's six slots with an explicit collision/omission policy.
-- **Mixer snapshot serialization and disk sync run on Live's scheduled callback.**
-  `plugspot.py` serializes the full mixer/device/parameter tree and calls
-  `fsync` from the Live control-surface callback. A large set or plugin with many
-  parameters can stall Live's UI/message loop. Copy the Live object data on its
-  owning thread, then serialize and write the plain snapshot on a worker.
-- **Ableton export spans two files and cannot recover from a process crash
-  between them.** Normal exceptions roll the XML config back when the SQLite
-  transaction fails, but termination after replacing `Library.cfg` and before
-  committing the database can leave mismatched collection names and item colors.
-  Add a durable journal/recovery phase, and verify both source files against the
-  backup on startup after an interrupted export.
+- **Lifecycle and window behavior still need real macOS/Live checks.** In
+  particular: Live close/crash, settings sheet focus, switching Spaces/displays,
+  and confirming the normal-level bubble appears over Live but is hidden over
+  other apps. Static code cannot establish WindowServer ordering behavior.
+- **Collections import can omit categories beyond the six-slot limit.** The UI
+  should report omitted names/count instead of silently claiming a complete
+  import.
 
 ### Medium priority
 
-- **The removed plugin validator remains as dead code.**
-  `VST3PluginValidator.swift`, the scanner's validation-target metadata, the
-  validation cache methods/table in `LocalLibraryStore`, and the validator build
-  script/artifacts are no longer on the app load path. Remove unused source and
-  build artifacts before release, while leaving any existing user database table
-  untouched for a non-destructive migration.
 - **Artwork misses are cached for the entire app session.**
   `PluginArtworkStore` marks a vendor/plugin as requested before extraction; a
   miss cannot retry if Live's scan file or bundle resources become available
@@ -61,36 +64,20 @@ used as a compiler check; Live behavior was not exercised in this review.
   latest recoverable state but not a history of revisions. Confirm that the
   intended retention policy is one latest snapshot per Set; otherwise add bounded
   version history and pruning.
-- **Library import is not atomic.** Categories, favorites, recents, and labels
-  are applied as separate SQLite writes. A later error can leave a partially
-  merged library while the import is reported as failed. Wrap the merge in a
-  transaction and roll it back on any error.
-- **Importing Ableton Collections silently drops categories past the six-slot
-  limit.** The UI skips labels once six local categories exist, but still reports
-  the import as successful. Once local categories are decoupled from Live's color
-  slots, import every category; until then, report the omitted names/count.
-- **Lifecycle and window behavior still need real macOS/Live checks.** In
-  particular: Live close/crash, settings sheet focus, switching Spaces/displays,
-  and confirming the normal-level bubble appears over Live but is hidden over
-  other apps. Static code cannot establish WindowServer ordering behavior.
 
 ## Cleanup / consistency
 
 - The codebase has no automated test target or test files. The local app build
   script compiles the shipped sources but does not exercise bridge, export,
   persistence, or window behavior.
-- At review time the workspace root had no `.git` directory, so earlier edits
-  could not be distinguished from the baseline. A local `main` repository has
-  since been initialized and the source snapshot staged; no commit or remote is
-  configured yet.
-- The local SQLite store still contains a dormant validator table and API; the
-  preceding dead-code finding includes these remnants.
+- The project has a clean local `main` commit; no GitHub remote is configured.
+- Existing local SQLite databases may still contain the unused plugin validation
+  table. It is retained for non-destructive compatibility and is no longer read.
 - Naming is intentionally mixed while the rename is in progress: visible UI is
   BubblePlug, while bundle ID, executable, SQLite path, launcher, and Remote
   Script remain PlugSpot. Keep this compatibility mapping documented until an
   installer/update migration is ready.
-- `setMainWindow(_:)` in `PlugSpotBubbleController` has no call sites; remove it
-  once the window registration path is settled.
+- The unused `setMainWindow(_:)` helper was removed during the follow-up cleanup.
 - Existing docs correctly mark mixer, export, lifecycle, and resource use as
   requiring user-run validation. Do not report those paths as validated based on
   compilation alone.

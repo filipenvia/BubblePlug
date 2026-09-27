@@ -18,6 +18,7 @@ from pathlib import Path
 
 HOME = Path.home()
 SUPPORT = HOME / "Library/Application Support/PlugSpot"
+EXPORT_JOURNAL = SUPPORT / "ableton-collections-export.journal.json"
 PREFS = HOME / "Library/Preferences/Ableton"
 DB_DIR = HOME / "Library/Application Support/Ableton/Live Database"
 LIVE_BUNDLE_ID = "com.ableton.live"
@@ -211,6 +212,90 @@ def make_backup(paths):
     return backup_dir
 
 
+def write_atomic_json(path, document):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=str(path.parent))
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(document, stream, ensure_ascii=False, sort_keys=True, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(str(path.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def export_journal_entries(cfg, db, backup_dir):
+    entries = []
+    for source in (cfg, db, Path(str(db) + "-wal"), Path(str(db) + "-shm"), Path(str(db) + "-journal")):
+        backup = backup_dir / source.name if source.exists() else None
+        entries.append({"path": str(source), "backup": str(backup) if backup else None})
+    return entries
+
+
+def recover_interrupted_export():
+    if not EXPORT_JOURNAL.exists():
+        return False
+    try:
+        if live_is_running():
+            raise ExportError("Ableton Live is still running. Close Live before recovering an interrupted export.")
+        journal = json.loads(EXPORT_JOURNAL.read_text(encoding="utf-8"))
+        cfgs = [path for path in PREFS.glob("Live 12.4.2/Library.cfg") if path.is_file()]
+        dbs = [path for path in DB_DIR.glob("Live-files-*.db") if path.is_file()]
+        allowed_targets = set()
+        for path in cfgs + dbs:
+            resolved = path.resolve()
+            allowed_targets.add(resolved)
+            if path in dbs:
+                for suffix in ("-wal", "-shm", "-journal"):
+                    allowed_targets.add(Path(str(path) + suffix).resolve())
+        backup_dir = Path(journal["backupDirectory"]).resolve()
+        expected_parent = (SUPPORT / "backups").resolve()
+        if backup_dir.parent != expected_parent:
+            raise ExportError("The interrupted export journal points outside PlugSpot's backup directory.")
+        entries = journal["files"]
+        if not isinstance(entries, list) or not entries:
+            raise ExportError("The interrupted export journal has no recovery file list.")
+        for entry in entries:
+            target = Path(entry["path"]).resolve()
+            if target not in allowed_targets:
+                raise ExportError("The interrupted export journal contains an unexpected target path.")
+            backup_value = entry.get("backup")
+            if backup_value is None:
+                try:
+                    target.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            backup = Path(backup_value).resolve()
+            if backup.parent != backup_dir or not backup.is_file():
+                raise ExportError("A required backup for the interrupted export is missing.")
+            descriptor, temporary = tempfile.mkstemp(prefix="." + target.name + ".plugspot-restore-", dir=str(target.parent))
+            os.close(descriptor)
+            try:
+                shutil.copy2(backup, temporary)
+                os.replace(temporary, target)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        EXPORT_JOURNAL.unlink()
+        directory_fd = os.open(str(EXPORT_JOURNAL.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return True
+    except Exception as exc:
+        raise ExportError("Could not recover an interrupted Ableton Collections export: %s" % exc) from exc
+
+
 def update_library_config(cfg_path, categories):
     tree = ET.parse(cfg_path)
     root = tree.getroot()
@@ -243,10 +328,10 @@ def update_library_config(cfg_path, categories):
 def apply_export(request_path, result_path):
     result = {"ok": False}
     cfg = db = plugin_db = backup_dir = None
-    config_changed = False
     try:
         if live_is_running():
             raise ExportError("Ableton Live is still running. No files were changed.")
+        recovered_previous_export = recover_interrupted_export()
         document = load_document(request_path)
         cfg, db, plugin_db = discover_targets()
         matched = match_families(document, cfg, db, plugin_db)
@@ -254,11 +339,11 @@ def apply_export(request_path, result_path):
             names = ", ".join(item["name"] for item in matched["missing"][:12])
             more = " and more" if len(matched["missing"]) > 12 else ""
             raise ExportError("Some PlugSpot plugins could not be matched (%s%s). No Collections were changed." % (names, more))
-        database_parts = [db]
-        database_parts.extend(Path(str(db) + suffix) for suffix in ("-wal", "-shm") if Path(str(db) + suffix).exists())
-        backup_dir = make_backup([cfg, *database_parts])
+        existing_database_parts = [Path(str(db) + suffix) for suffix in ("-wal", "-shm", "-journal") if Path(str(db) + suffix).exists()]
+        backup_dir = make_backup([cfg, db, *existing_database_parts])
+        journal = {"backupDirectory": str(backup_dir), "files": export_journal_entries(cfg, db, backup_dir)}
+        write_atomic_json(EXPORT_JOURNAL, journal)
         update_library_config(cfg, document.get("categories", []))
-        config_changed = True
         connection = sqlite3.connect(db, timeout=10)
         try:
             checkpoint = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
@@ -282,6 +367,13 @@ def apply_export(request_path, result_path):
             raise
         finally:
             connection.close()
+        EXPORT_JOURNAL.unlink()
+        directory_fd = os.open(str(EXPORT_JOURNAL.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        result["recoveredPreviousInterruptedExport"] = recovered_previous_export
         result.update({
             "ok": True, "message": "Ableton Collections were replaced from PlugSpot.",
             "backupDirectory": str(backup_dir), "matchedFamilies": matched["matchedFamilies"],
@@ -289,9 +381,9 @@ def apply_export(request_path, result_path):
             "categories": len(document.get("categories", [])),
         })
     except Exception as exc:
-        if config_changed and backup_dir and cfg:
+        if EXPORT_JOURNAL.exists():
             try:
-                shutil.copy2(backup_dir / cfg.name, cfg)
+                recover_interrupted_export()
             except Exception as rollback_error:
                 result["rollbackError"] = str(rollback_error)
         result.update({"ok": False, "error": str(exc), "backupDirectory": str(backup_dir) if backup_dir else None})
@@ -303,13 +395,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--preflight", nargs=2, metavar=("REQUEST", "RESULT"))
     parser.add_argument("--apply", nargs=2, metavar=("REQUEST", "RESULT"))
+    parser.add_argument("--recover", action="store_true")
     args = parser.parse_args()
     if args.preflight:
         result = preflight(*args.preflight)
     elif args.apply:
         result = apply_export(*args.apply)
+    elif args.recover:
+        try:
+            result = {"ok": True, "recovered": recover_interrupted_export()}
+        except Exception as exc:
+            result = {"ok": False, "error": str(exc)}
     else:
-        parser.error("Choose --preflight or --apply")
+        parser.error("Choose --preflight, --apply, or --recover")
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get("ok") else 1
 

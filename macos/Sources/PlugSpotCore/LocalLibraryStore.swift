@@ -39,6 +39,37 @@ public struct LocalCategory: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+public struct StoredChainPlugin: Codable, Sendable, Equatable, Identifiable {
+    public let familyID: String
+    public let pluginID: String
+    public let name: String
+    public let vendor: String
+    public let format: String
+    public var id: String { "\(familyID)|\(pluginID)|\(name)" }
+
+    public init(familyID: String, pluginID: String, name: String, vendor: String, format: String) {
+        self.familyID = familyID
+        self.pluginID = pluginID
+        self.name = name
+        self.vendor = vendor
+        self.format = format
+    }
+}
+
+public struct StoredChainSet: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public var name: String
+    public var plugins: [StoredChainPlugin]
+    public let updatedAt: Date
+
+    public init(id: String = UUID().uuidString, name: String, plugins: [StoredChainPlugin], updatedAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.plugins = plugins
+        self.updatedAt = updatedAt
+    }
+}
+
 public struct PlugSpotLibraryDocument: Codable, Sendable, Equatable {
     public let schemaVersion: Int
     public let exportedAt: Date
@@ -97,14 +128,6 @@ public struct LocalPluginRecord: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-public struct PluginValidationRecord: Sendable, Equatable {
-    public let cacheKey: String
-    public let status: String
-    public let details: String
-    public let validatorVersion: String
-    public let checkedAt: Date
-}
-
 public enum LocalLibraryStoreError: Error, LocalizedError, Sendable {
     case open(String)
     case database(String)
@@ -124,7 +147,9 @@ public final class LocalLibraryStore: @unchecked Sendable {
             .appendingPathComponent("Library/Application Support/PlugSpot/library.sqlite3")
     }
 
-    private let lock = NSLock()
+    // Imports hold the lock across a complete SQLite transaction. Individual
+    // store methods also lock, so the lock must allow same-thread re-entry.
+    private let lock = NSRecursiveLock()
     private let database: OpaquePointer
 
     public init(databaseURL: URL = LocalLibraryStore.defaultDatabaseURL) throws {
@@ -186,20 +211,23 @@ public final class LocalLibraryStore: @unchecked Sendable {
                     name TEXT NOT NULL COLLATE NOCASE UNIQUE,
                     color_index INTEGER NOT NULL UNIQUE CHECK(color_index BETWEEN 2 AND 7)
                 );
-                CREATE TABLE IF NOT EXISTS plugin_validation (
-                    cache_key TEXT PRIMARY KEY NOT NULL,
+                CREATE TABLE IF NOT EXISTS chain_sets (
+                    chain_set_id TEXT PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                    updated_at REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chain_set_plugins (
+                    chain_set_id TEXT NOT NULL REFERENCES chain_sets(chain_set_id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    family_id TEXT NOT NULL,
                     plugin_id TEXT NOT NULL,
-                    plugin_name TEXT NOT NULL,
-                    bundle_path TEXT NOT NULL,
-                    plugin_version TEXT NOT NULL,
-                    architecture TEXT NOT NULL,
-                    fingerprint TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    details TEXT NOT NULL DEFAULT '',
-                    validator_version TEXT NOT NULL,
-                    checked_at REAL NOT NULL
+                    name TEXT NOT NULL,
+                    vendor TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    PRIMARY KEY(chain_set_id, position)
                 );
                 """)
+            try execute("PRAGMA foreign_keys=ON")
             try ensurePluginLabelColorColumn()
         } catch {
             sqlite3_close(openedDatabase)
@@ -280,6 +308,75 @@ public final class LocalLibraryStore: @unchecked Sendable {
         }
     }
 
+    public func chainSets() throws -> [StoredChainSet] {
+        lock.lock()
+        defer { lock.unlock() }
+        return try withStatement("SELECT chain_set_id, name, updated_at FROM chain_sets ORDER BY name COLLATE NOCASE") { statement in
+            var result: [StoredChainSet] = []
+            while true {
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { break }
+                guard step == SQLITE_ROW else { throw LocalLibraryStoreError.database(String(cString: sqlite3_errmsg(database))) }
+                let id = textColumn(statement, 0)
+                result.append(StoredChainSet(id: id, name: textColumn(statement, 1), plugins: try chainPlugins(id: id), updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))))
+            }
+            return result
+        }
+    }
+
+    public func saveChainSet(_ chainSet: StoredChainSet) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        let name = chainSet.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !chainSet.plugins.isEmpty else { throw LocalLibraryStoreError.database("Give the Chain Set a name and add at least one plugin.") }
+        try execute("BEGIN IMMEDIATE")
+        do {
+            try withStatement("INSERT INTO chain_sets(chain_set_id, name, updated_at) VALUES(?, ?, ?) ON CONFLICT(chain_set_id) DO UPDATE SET name=excluded.name, updated_at=excluded.updated_at") { statement in
+                try bind(chainSet.id, at: 1, in: statement); try bind(name, at: 2, in: statement)
+                sqlite3_bind_double(statement, 3, chainSet.updatedAt.timeIntervalSince1970); try stepDone(statement)
+            }
+            try withStatement("DELETE FROM chain_set_plugins WHERE chain_set_id=?") { statement in try bind(chainSet.id, at: 1, in: statement); try stepDone(statement) }
+            for (index, plugin) in chainSet.plugins.enumerated() {
+                try withStatement("INSERT INTO chain_set_plugins(chain_set_id, position, family_id, plugin_id, name, vendor, format) VALUES(?, ?, ?, ?, ?, ?, ?)") { statement in
+                    try bind(chainSet.id, at: 1, in: statement); sqlite3_bind_int(statement, 2, Int32(index))
+                    try bind(plugin.familyID, at: 3, in: statement); try bind(plugin.pluginID, at: 4, in: statement)
+                    try bind(plugin.name, at: 5, in: statement); try bind(plugin.vendor, at: 6, in: statement); try bind(plugin.format, at: 7, in: statement)
+                    try stepDone(statement)
+                }
+            }
+            try execute("COMMIT")
+        } catch { try? execute("ROLLBACK"); throw error }
+    }
+
+    public func deleteChainSet(id: String) throws {
+        lock.lock(); defer { lock.unlock() }
+        try withStatement("DELETE FROM chain_sets WHERE chain_set_id=?") { statement in try bind(id, at: 1, in: statement); try stepDone(statement) }
+        try withStatement("DELETE FROM chain_set_plugins WHERE chain_set_id=?") { statement in try bind(id, at: 1, in: statement); try stepDone(statement) }
+    }
+
+    public func renameChainSet(id: String, name: String) throws {
+        lock.lock(); defer { lock.unlock() }
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { throw LocalLibraryStoreError.database("A Chain Set needs a name.") }
+        try withStatement("UPDATE chain_sets SET name=?, updated_at=? WHERE chain_set_id=?") { statement in
+            try bind(cleanName, at: 1, in: statement); sqlite3_bind_double(statement, 2, Date().timeIntervalSince1970); try bind(id, at: 3, in: statement); try stepDone(statement)
+        }
+    }
+
+    private func chainPlugins(id: String) throws -> [StoredChainPlugin] {
+        try withStatement("SELECT family_id, plugin_id, name, vendor, format FROM chain_set_plugins WHERE chain_set_id=? ORDER BY position") { statement in
+            try bind(id, at: 1, in: statement)
+            var result: [StoredChainPlugin] = []
+            while true {
+                let step = sqlite3_step(statement)
+                if step == SQLITE_DONE { break }
+                guard step == SQLITE_ROW else { throw LocalLibraryStoreError.database(String(cString: sqlite3_errmsg(database))) }
+                result.append(StoredChainPlugin(familyID: textColumn(statement, 0), pluginID: textColumn(statement, 1), name: textColumn(statement, 2), vendor: textColumn(statement, 3), format: textColumn(statement, 4)))
+            }
+            return result
+        }
+    }
+
     public func saveCategory(_ category: LocalCategory, replacing oldName: String? = nil) throws {
         lock.lock()
         defer { lock.unlock() }
@@ -343,29 +440,42 @@ public final class LocalLibraryStore: @unchecked Sendable {
         guard (1...2).contains(document.schemaVersion) else {
             throw LocalLibraryStoreError.database("This PlugSpot library file version is not supported.")
         }
-        let existing = try categories()
-        var nextColor = (2...7).filter { index in !existing.contains(where: { $0.colorIndex == index }) }
-        let newCategories = document.categories.filter { category in
-            !existing.contains(where: { $0.name.caseInsensitiveCompare(category.name) == .orderedSame })
-        }
-        guard newCategories.count <= nextColor.count else {
-            throw LocalLibraryStoreError.database("There are already six categories. Delete or rename one before importing more.")
-        }
-        for category in newCategories {
-            guard let color = nextColor.first(where: { $0 == category.colorIndex }) ?? nextColor.first else { continue }
-            nextColor.removeAll { $0 == color }
-            try saveCategory(LocalCategory(id: category.id, name: category.name, colorIndex: color))
-        }
-        for favorite in document.favorites {
-            try setFavorite(id: favorite.id, name: favorite.name, vendor: favorite.vendor, format: favorite.format, isFavorite: true)
-        }
-        for record in document.recentRecords {
-            guard let lastUsed = record.lastUsed else { continue }
-            try mergeRecent(record, lastUsed: lastUsed)
-        }
-        for label in document.labels {
-            let category = try categories().first { $0.name.caseInsensitiveCompare(label.name) == .orderedSame }
-            try addLabel(LocalPluginLabel(pluginID: label.pluginID, name: label.name, kind: label.kind, source: label.source, colorIndex: category?.colorIndex ?? label.colorIndex, pluginName: label.pluginName, vendor: label.vendor, format: label.format))
+        lock.lock()
+        defer { lock.unlock() }
+        try execute("BEGIN IMMEDIATE")
+        do {
+            let existing = try categories()
+            var nextColor = (2...7).filter { index in !existing.contains(where: { $0.colorIndex == index }) }
+            let newCategories = document.categories.filter { category in
+                !existing.contains(where: { $0.name.caseInsensitiveCompare(category.name) == .orderedSame })
+            }
+            guard newCategories.count <= nextColor.count else {
+                throw LocalLibraryStoreError.database("There are already six categories. Delete or rename one before importing more.")
+            }
+            for category in newCategories {
+                guard let color = nextColor.first(where: { $0 == category.colorIndex }) ?? nextColor.first else { continue }
+                nextColor.removeAll { $0 == color }
+                try saveCategory(LocalCategory(id: category.id, name: category.name, colorIndex: color))
+            }
+            var categoryColors: [String: Int] = [:]
+            for category in try categories() {
+                categoryColors[category.name.lowercased()] = category.colorIndex
+            }
+            for favorite in document.favorites {
+                try setFavorite(id: favorite.id, name: favorite.name, vendor: favorite.vendor, format: favorite.format, isFavorite: true)
+            }
+            for record in document.recentRecords {
+                guard let lastUsed = record.lastUsed else { continue }
+                try mergeRecent(record, lastUsed: lastUsed)
+            }
+            for label in document.labels {
+                let color = categoryColors[label.name.lowercased()] ?? label.colorIndex
+                try addLabel(LocalPluginLabel(pluginID: label.pluginID, name: label.name, kind: label.kind, source: label.source, colorIndex: color, pluginName: label.pluginName, vendor: label.vendor, format: label.format))
+            }
+            try execute("COMMIT")
+        } catch {
+            try? execute("ROLLBACK")
+            throw error
         }
     }
 
@@ -409,75 +519,6 @@ public final class LocalLibraryStore: @unchecked Sendable {
             try bind(vendor, at: 3, in: statement)
             try bind(format, at: 4, in: statement)
             try bind(Date().timeIntervalSince1970, at: 5, in: statement)
-            try stepDone(statement)
-        }
-    }
-
-    public func pluginValidation(cacheKey: String) throws -> PluginValidationRecord? {
-        lock.lock()
-        defer { lock.unlock() }
-        return try withStatement("""
-            SELECT cache_key, status, details, validator_version, checked_at
-            FROM plugin_validation WHERE cache_key = ?
-            """) { statement in
-            try bind(cacheKey, at: 1, in: statement)
-            let result = sqlite3_step(statement)
-            if result == SQLITE_DONE { return nil }
-            guard result == SQLITE_ROW else {
-                throw LocalLibraryStoreError.database(String(cString: sqlite3_errmsg(database)))
-            }
-            return PluginValidationRecord(
-                cacheKey: textColumn(statement, 0),
-                status: textColumn(statement, 1),
-                details: textColumn(statement, 2),
-                validatorVersion: textColumn(statement, 3),
-                checkedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
-            )
-        }
-    }
-
-    public func recordPluginValidation(
-        cacheKey: String,
-        pluginID: String,
-        pluginName: String,
-        bundlePath: String,
-        version: String,
-        architecture: String,
-        fingerprint: String,
-        status: String,
-        details: String,
-        validatorVersion: String
-    ) throws {
-        lock.lock()
-        defer { lock.unlock() }
-        try withStatement("""
-            INSERT INTO plugin_validation(
-                cache_key, plugin_id, plugin_name, bundle_path, plugin_version,
-                architecture, fingerprint, status, details, validator_version, checked_at
-            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(cache_key) DO UPDATE SET
-                plugin_id=excluded.plugin_id,
-                plugin_name=excluded.plugin_name,
-                bundle_path=excluded.bundle_path,
-                plugin_version=excluded.plugin_version,
-                architecture=excluded.architecture,
-                fingerprint=excluded.fingerprint,
-                status=excluded.status,
-                details=excluded.details,
-                validator_version=excluded.validator_version,
-                checked_at=excluded.checked_at
-            """) { statement in
-            try bind(cacheKey, at: 1, in: statement)
-            try bind(pluginID, at: 2, in: statement)
-            try bind(pluginName, at: 3, in: statement)
-            try bind(bundlePath, at: 4, in: statement)
-            try bind(version, at: 5, in: statement)
-            try bind(architecture, at: 6, in: statement)
-            try bind(fingerprint, at: 7, in: statement)
-            try bind(status, at: 8, in: statement)
-            try bind(String(details.prefix(4000)), at: 9, in: statement)
-            try bind(validatorVersion, at: 10, in: statement)
-            try bind(Date().timeIntervalSince1970, at: 11, in: statement)
             try stepDone(statement)
         }
     }

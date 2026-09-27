@@ -14,15 +14,15 @@ struct MixerView: View {
 
     private var channels: [MixerChannelItem] {
         guard let snapshot else { return [] }
-        return snapshot.tracks.map { MixerChannelItem(track: $0, section: "TRACK") }
-            + snapshot.returnTracks.map { MixerChannelItem(track: $0, section: "RETURN") }
-            + [MixerChannelItem(track: snapshot.masterTrack, section: "MASTER")]
+        return snapshot.tracks.enumerated().map { MixerChannelItem(track: $0.element, section: "TRACK", position: $0.offset) }
+            + snapshot.returnTracks.enumerated().map { MixerChannelItem(track: $0.element, section: "RETURN", position: $0.offset) }
+            + [MixerChannelItem(track: snapshot.masterTrack, section: "MASTER", position: 0)]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(isShowingRecoverySnapshot ? "Recovery Snapshot" : "Live Mixer")
+                Text(isShowingRecoverySnapshot ? "Recovery Snapshot" : "Live Mixer (\(snapshot?.tracks.count ?? 0) tracks)")
                     .font(.headline)
                 Spacer()
                 if isLoading { ProgressView().controlSize(.small) }
@@ -69,7 +69,7 @@ struct MixerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView(.horizontal) {
+                ScrollView([.horizontal, .vertical], showsIndicators: true) {
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(channels) { channel in
                             MixerChannelStrip(track: channel.track, section: channel.section)
@@ -191,7 +191,8 @@ private struct SavedMixerSnapshot: Identifiable {
 private struct MixerChannelItem: Identifiable {
     let track: MixerTrack
     let section: String
-    var id: String { "\(section)-\(track.id)" }
+    let position: Int
+    var id: String { "\(section)-\(position)" }
 }
 
 private struct MixerChannelStrip: View {
@@ -262,7 +263,7 @@ private struct MixerChannelStrip: View {
                     Text("No devices")
                         .foregroundStyle(.tertiary)
                 } else {
-                    ForEach(track.devices) { device in
+                    ForEach(Array(track.devices.enumerated()), id: \.offset) { _, device in
                         Text(device.name)
                             .lineLimit(2)
                             .foregroundStyle(device.className == "PluginDevice" ? .primary : .secondary)
@@ -272,11 +273,11 @@ private struct MixerChannelStrip: View {
                                 .foregroundStyle(.tertiary)
                                 .padding(.leading, 5)
                         }
-                        ForEach(device.chains) { chain in
+                        ForEach(Array(device.chains.enumerated()), id: \.offset) { _, chain in
                             Text("↳ \(chain.name)")
                                 .foregroundStyle(.secondary)
                                 .padding(.leading, 6)
-                            ForEach(chain.devices) { nested in
+                            ForEach(Array(chain.devices.enumerated()), id: \.offset) { _, nested in
                                 Text("   \(nested.name)")
                                     .foregroundStyle(.tertiary)
                                     .padding(.leading, 8)
@@ -287,10 +288,10 @@ private struct MixerChannelStrip: View {
             }
             .font(.system(size: 10))
             .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 0)
         }
         .padding(9)
-        .frame(width: 118, height: 300)
+        .frame(width: 168)
+        .frame(minHeight: 300, alignment: .top)
         .background(PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(PlugSpotPalette.iridescence.opacity(0.24)))
     }

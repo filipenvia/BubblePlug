@@ -1,0 +1,175 @@
+diff --git a/samples/vst-hosting/editorhost/source/editorhost.cpp b/samples/vst-hosting/editorhost/source/editorhost.cpp
+index a71ef09..1fc9d20 100644
+--- a/samples/vst-hosting/editorhost/source/editorhost.cpp
++++ b/samples/vst-hosting/editorhost/source/editorhost.cpp
+@@ -137,7 +137,8 @@ App::~App () noexcept
+ void App::openEditor (const std::string& path, VST3::Optional<VST3::UID> effectID, uint32 flags)
+ {
+ 	std::string error;
+-	module = VST3::Hosting::Module::create (path, error);
++	if (!module)
++		module = VST3::Hosting::Module::create (path, error);
+ 	if (!module)
+ 	{
+ 		std::string reason = "Could not create Module for file:";
+@@ -234,12 +235,21 @@ void App::init (const std::vector<std::string>& cmdArgs)
+ {
+ 	VST3::Optional<VST3::UID> uid;
+ 	uint32 flags {};
++	bool listClasses = false;
++	std::string effectName;
+ 	for (auto it = cmdArgs.begin (), end = cmdArgs.end (); it != end; ++it)
+ 	{
+ 		if (*it == "--componentHandler")
+ 			flags |= kSetComponentHandler;
+ 		else if (*it == "--secondWindow")
+ 			flags |= kSecondWindow;
++		else if (*it == "--list")
++			listClasses = true;
++		else if (*it == "--name")
++		{
++			if (++it != end)
++				effectName = *it;
++		}
+ 		else if (*it == "--uid")
+ 		{
+ 			if (++it != end)
+@@ -270,6 +280,34 @@ options:
+ 	}
+ 
+ 	PluginContextFactory::instance ().setPluginContext (&pluginContext);
++	if (listClasses)
++	{
++		std::string error;
++		auto listedModule = VST3::Hosting::Module::create (cmdArgs.back (), error);
++		if (!listedModule)
++			IPlatform::instance ().kill (2, error);
++		for (const auto& info : listedModule->getFactory ().classInfos ())
++			if (info.category () == kVstAudioEffectClass)
++				std::cout << info.ID ().toString () << '\t' << info.name () << '\t'
++				          << info.vendor () << std::endl;
++		IPlatform::instance ().quit ();
++		return;
++	}
++	if (!effectName.empty ())
++	{
++		std::string error;
++		module = VST3::Hosting::Module::create (cmdArgs.back (), error);
++		if (!module)
++			IPlatform::instance ().kill (2, error);
++		for (const auto& info : module->getFactory ().classInfos ())
++			if (info.category () == kVstAudioEffectClass && info.name () == effectName)
++			{
++				uid = VST3::Optional<VST3::UID> (info.ID ());
++				break;
++			}
++		if (!uid)
++			IPlatform::instance ().kill (3, "No exact VST3 class named " + effectName);
++	}
+ 
+ 	openEditor (cmdArgs.back (), std::move (uid), flags);
+ }
+diff --git a/samples/vst-hosting/editorhost/source/platform/mac/platform.mm b/samples/vst-hosting/editorhost/source/platform/mac/platform.mm
+index 293c994..478f3d0 100644
+--- a/samples/vst-hosting/editorhost/source/platform/mac/platform.mm
++++ b/samples/vst-hosting/editorhost/source/platform/mac/platform.mm
+@@ -19,7 +19,11 @@
+ #import "public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.h"
+ 
+ #import <Cocoa/Cocoa.h>
++#import <CoreGraphics/CoreGraphics.h>
++#import <ImageIO/ImageIO.h>
+ #import <iostream>
++#include <cstdlib>
++#include <unistd.h>
+ 
+ #if !__has_feature(objc_arc)
+ #error this file needs to be compiled with automatic reference counting enabled
+@@ -97,6 +101,8 @@ WindowPtr createWindow (const std::string& title, Size size, bool resizeable,
+ {
+ 	std::cout << reason << "\n";
+ 	std::cout.flush ();
++	if (getenv ("BUBBLEPLUG_CAPTURE_OUTPUT") || getenv ("BUBBLEPLUG_LIST_CLASSES"))
++		_exit (resultCode);
+ 
+ 	auto alert = [NSAlert new];
+ 	alert.messageText = [NSString stringWithUTF8String:reason.data ()];
+@@ -131,6 +137,16 @@ @interface VSTSDK_AppDelegate : NSObject <NSApplicationDelegate>
+ }
+ @end
+ 
++static void watchBubblePlugParent (pid_t parent)
++{
++	dispatch_after (dispatch_time (DISPATCH_TIME_NOW, NSEC_PER_SEC),
++	                dispatch_get_main_queue (), ^{
++		if (getppid () != parent)
++			_exit (0);
++		watchBubblePlugParent (parent);
++	});
++}
++
+ //------------------------------------------------------------------------
+ @implementation VSTSDK_AppDelegate
+ 
+@@ -195,9 +211,49 @@ - (BOOL)application:(NSApplication*)sender openFile:(NSString*)filename
+ //------------------------------------------------------------------------
+ - (void)applicationDidFinishLaunching:(NSNotification*)notification
+ {
++	watchBubblePlugParent (getppid ());
+ 	[self setupMenubar];
+ 	Steinberg::Vst::EditorHost::Platform::instance ().application->init (cmdArgs);
+ 	cmdArgs.clear ();
++	const char* output = getenv ("BUBBLEPLUG_CAPTURE_OUTPUT");
++	if (output && output[0])
++	{
++		NSString* outputPath = [NSString stringWithUTF8String:output];
++		const char* delayValue = getenv ("BUBBLEPLUG_CAPTURE_DELAY_MS");
++		int delayMs = delayValue ? atoi (delayValue) : 1500;
++		if (delayMs < 100 || delayMs > 10000)
++			delayMs = 1500;
++		dispatch_after (dispatch_time (DISPATCH_TIME_NOW, (int64_t) (delayMs * NSEC_PER_MSEC)),
++		                dispatch_get_main_queue (), ^{
++			NSWindow* editor = nil;
++			for (NSWindow* candidate in NSApp.windows)
++				if (candidate.isVisible && [candidate.title isEqualToString:@"Editor"])
++				{
++					editor = candidate;
++					break;
++				}
++			if (!editor)
++				exit (3);
++			CGImageRef image = CGWindowListCreateImage (CGRectNull,
++			    kCGWindowListOptionIncludingWindow, (CGWindowID)editor.windowNumber,
++			    kCGWindowImageBoundsIgnoreFraming);
++			if (!image)
++				exit (4);
++			NSURL* url = [NSURL fileURLWithPath:outputPath];
++			CGImageDestinationRef destination = CGImageDestinationCreateWithURL (
++			    (__bridge CFURLRef)url, CFSTR ("public.jpeg"), 1, nullptr);
++			if (!destination)
++			{
++				CGImageRelease (image);
++				exit (5);
++			}
++			CGImageDestinationAddImage (destination, image, nullptr);
++			bool saved = CGImageDestinationFinalize (destination);
++			CFRelease (destination);
++			CGImageRelease (image);
++			_exit (saved ? 0 : 6);
++		});
++	}
+ }
+ 
+ //------------------------------------------------------------------------
+diff --git a/samples/vst-hosting/editorhost/source/platform/mac/window.mm b/samples/vst-hosting/editorhost/source/platform/mac/window.mm
+index 65b3500..0975d61 100644
+--- a/samples/vst-hosting/editorhost/source/platform/mac/window.mm
++++ b/samples/vst-hosting/editorhost/source/platform/mac/window.mm
+@@ -100,6 +100,7 @@ - (id)initWithWindow:(std::shared_ptr<EditorHost::Window>)window;
+ {
+ 	auto nsWindow = impl->nsWindowDelegate.nsWindow;
+ 	impl->controller->onShow (*this);
++	[NSApp activateIgnoringOtherApps:YES];
+ 	[nsWindow makeKeyAndOrderFront:nil];
+ }
+ 

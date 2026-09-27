@@ -10,7 +10,7 @@ PlugSpot SwiftUI app
           │ JSON Lines over a user-only Unix Domain Socket
           ▼
 Ableton Live Control Surface (Python Remote Script)
-  ├── LiveAdapter: Browser, selected track, mixer and device metadata
+  ├── LiveAdapter: Browser, selected track, mixer, artwork scan and device metadata
   ├── BridgeDispatcher: allow-listed methods and protocol validation
   └── BridgeServer: socket worker queue
           │ scheduled callback on Live's Control Surface loop
@@ -21,7 +21,8 @@ Ableton Live Object Model / Browser API
 ### Swift side
 
 `PlugSpotCore` owns protocol models, the bridge abstraction, SQLite library
-store, Ableton Collections reader, and VST3 artwork lookup. SwiftUI does not
+store, Ableton Collections reader, VST3 artwork lookup, and first-run artwork
+capture coordination. SwiftUI does not
 access Live objects directly. `MixerView` reads `get_mixer` on entry, writes an
 atomic JSON recovery snapshot, lists snapshots from disk, and can render one
 without a Live connection.
@@ -31,9 +32,10 @@ without a Live connection.
 The Remote Script owns all calls into Live. The socket worker only accepts and
 queues JSON Lines; `schedule_message` dispatches requests on Live's control
 surface callback. The script listens for track/device/parameter changes and
-debounces mixer snapshots to disk outside the `.als` file. It postpones writes
-while Live is playing. These listeners and crash behavior still need a real
-Live Set check.
+debounces mixer snapshots. It copies Live-owned values on the callback, then
+queues JSON serialization and atomic disk writing on a background worker,
+outside the `.als` file. It postpones snapshot collection while Live is playing.
+These listeners and crash behavior still need a real Live Set check.
 
 ### Local files
 
@@ -74,5 +76,6 @@ shell execution is not exposed. See [PROTOCOL.md](PROTOCOL.md).
   Live during instantiation.
 - Mixer snapshots contain the mixer/device tree and values that Live exposes;
   they do not promise full recovery of third-party plugin-private state.
-- The current app build on the reference Mac is x86_64. Apple Silicon and
-  Universal release builds are not complete.
+- `macos/build-app.sh` can build x86_64, arm64, or Universal bundles. The Intel
+  reference Mac can run the x86_64 slice; arm64 has not been runtime-tested on
+  Apple Silicon hardware. Volunteer feedback is needed before claiming support.

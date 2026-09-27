@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_PATH="/Applications/BubblePlug.app"
+PAYLOAD="/Library/Application Support/BubblePlug/InstallerPayload"
+CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
+
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "loginwindow" ]]; then
+  echo "No logged-in user; install the Ableton integration after signing in by running macos/install-launcher.sh."
+  exit 0
+fi
+
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^[^:]*: //')"
+USER_GROUP="$(/usr/bin/id -gn "$CONSOLE_USER")"
+REMOTE_DIR="$USER_HOME/Music/Ableton/User Library/Remote Scripts/PlugSpot"
+
+/bin/mkdir -p "$REMOTE_DIR"
+/usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' \
+  "$PAYLOAD/Remote Scripts/PlugSpot/" "$REMOTE_DIR/"
+/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$REMOTE_DIR"
+
+HOME="$USER_HOME" \
+PLUGSPOT_APP_PATH="$APP_PATH" \
+PLUGSPOT_WORKER_SOURCE="$PAYLOAD/ableton-export-worker.py" \
+  /bin/zsh "$PAYLOAD/configure-launcher.sh"
+
+/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$USER_HOME/Library/Application Support/PlugSpot"
+/bin/rm -rf "$PAYLOAD"
+/bin/rmdir "/Library/Application Support/BubblePlug" 2>/dev/null || true
+
+echo "BubblePlug installed. Restart Ableton Live to load the PlugSpot Control Surface."
+exit 0

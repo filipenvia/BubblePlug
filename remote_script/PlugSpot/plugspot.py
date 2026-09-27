@@ -4,10 +4,12 @@ import logging
 import hashlib
 import json
 import os
+import queue
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import traceback
 
@@ -40,7 +42,11 @@ class PlugSpot(ControlSurface):
         self._launcher = None
         self._mixer_snapshot_due = None
         self._mixer_snapshot_dirty = False
-        self._mixer_snapshot_saved = False
+        self._snapshot_queue = queue.Queue()
+        self._snapshot_worker = threading.Thread(
+            target=self._write_mixer_snapshots, name="PlugSpotSnapshotWriter", daemon=True
+        )
+        self._snapshot_worker.start()
         super().__init__(c_instance)
         self._plugspot_logger.info("Remote Script initialising")
         self._log_live_state()
@@ -165,38 +171,50 @@ class PlugSpot(ControlSurface):
         try:
             self._adapter.refresh_mixer_listeners()
             snapshot = self._adapter.get_mixer()
-            set_path = snapshot.get("set_path") or ""
-            set_name = snapshot.get("set_name") or "Unsaved-Set"
-            set_id = snapshot.get("set_id") or "unsaved"
-            identity = set_path or set_id
-            digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
-            safe_name = re.sub(r"[^A-Za-z0-9._ -]+", "-", set_name).strip(" .-") or "Unsaved-Set"
-            directory = os.path.expanduser("~/Library/Application Support/PlugSpot/MixerSnapshots")
-            os.makedirs(directory, mode=0o700, exist_ok=True)
-            os.chmod(directory, 0o700)
-            target = os.path.join(directory, "{}-{}.json".format(safe_name, digest))
-            document = {
-                "schema_version": 1,
-                "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "snapshot": snapshot,
-            }
-            descriptor, temporary = tempfile.mkstemp(prefix=".plugspot-snapshot-", dir=directory)
-            try:
-                os.fchmod(descriptor, 0o600)
-                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-                    json.dump(document, stream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.replace(temporary, target)
-            finally:
-                if os.path.exists(temporary):
-                    os.unlink(temporary)
+            # Live API objects are read above on Live's scheduled callback.
+            # Only ordinary strings, numbers, lists and dictionaries cross to
+            # the worker; JSON encoding and disk sync never run on Live's loop.
+            self._snapshot_queue.put(snapshot)
             self._mixer_snapshot_dirty = False
             self._mixer_snapshot_due = None
-            self._mixer_snapshot_saved = True
-            self._plugspot_logger.info("Mixer recovery snapshot saved: %s", target)
+            self._plugspot_logger.info("Mixer recovery snapshot queued for background write")
         except Exception:
-            self._plugspot_logger.error("Could not save mixer recovery snapshot:\n%s", traceback.format_exc())
+            self._plugspot_logger.error("Could not collect mixer recovery snapshot:\n%s", traceback.format_exc())
+
+    def _write_mixer_snapshots(self):
+        while True:
+            snapshot = self._snapshot_queue.get()
+            if snapshot is None:
+                return
+            try:
+                set_path = snapshot.get("set_path") or ""
+                set_name = snapshot.get("set_name") or "Unsaved-Set"
+                set_id = snapshot.get("set_id") or "unsaved"
+                digest = hashlib.sha256((set_path or set_id).encode("utf-8")).hexdigest()[:12]
+                safe_name = re.sub(r"[^A-Za-z0-9._ -]+", "-", set_name).strip(" .-") or "Unsaved-Set"
+                directory = os.path.expanduser("~/Library/Application Support/PlugSpot/MixerSnapshots")
+                os.makedirs(directory, mode=0o700, exist_ok=True)
+                os.chmod(directory, 0o700)
+                target = os.path.join(directory, "{}-{}.json".format(safe_name, digest))
+                document = {
+                    "schema_version": 1,
+                    "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "snapshot": snapshot,
+                }
+                descriptor, temporary = tempfile.mkstemp(prefix=".plugspot-snapshot-", dir=directory)
+                try:
+                    os.fchmod(descriptor, 0o600)
+                    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                        json.dump(document, stream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(temporary, target)
+                finally:
+                    if os.path.exists(temporary):
+                        os.unlink(temporary)
+                self._plugspot_logger.info("Mixer recovery snapshot saved: %s", target)
+            except Exception:
+                self._plugspot_logger.error("Could not write mixer recovery snapshot:\n%s", traceback.format_exc())
 
     @staticmethod
     def _safe_child_count(node):
@@ -211,6 +229,11 @@ class PlugSpot(ControlSurface):
     def disconnect(self):
         self._plugspot_logger.info("Remote Script disconnecting")
         self._stop_launcher()
+        try:
+            self._snapshot_queue.put(None)
+            self._snapshot_worker.join(timeout=2.0)
+        except Exception:
+            self._plugspot_logger.error("Mixer snapshot writer shutdown failed:\n%s", traceback.format_exc())
         try:
             if getattr(self, "_adapter", None) is not None:
                 self._adapter.close_mixer_listeners()

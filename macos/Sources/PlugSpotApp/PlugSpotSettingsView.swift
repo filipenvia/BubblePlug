@@ -69,9 +69,14 @@ struct PlugSpotSettingsView: View {
     @Binding var shortcutModifiers: Int
     @Binding var shortcutLabel: String
     @Binding var shortcutStatus: String
+    @Binding var imageStartupMode: String
+    let imageScanIsRunning: Bool
+    let missingImageCount: Int
+    let onLoadAllImages: () -> Void
     let onRecordingChanged: (Bool) -> Void
     let onShortcutChanged: () -> Void
     let onBubbleChanged: () -> Void
+    let onResetBubblePosition: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -106,6 +111,32 @@ struct PlugSpotSettingsView: View {
 
                 Toggle("Lock Position", isOn: $bubblePositionLocked)
                     .onChange(of: bubblePositionLocked) { _ in onBubbleChanged() }
+                Button("Reset Bubble Position") { onResetBubblePosition() }
+                    .buttonStyle(.bordered)
+                    .help("Move the bubble back to the lower left corner of the Ableton window")
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Plugin Images")
+                    .font(.headline)
+                Picker("At startup", selection: $imageStartupMode) {
+                    Text("Ask me").tag("ask")
+                    Text("Load missing images").tag("scan")
+                    Text("Open without loading").tag("defer")
+                }
+                Text("Plugins that need activation or have never been opened may show setup, activation, or error screens instead of their editor. Replace those images in Manage Images.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("\(missingImageCount) plugin images missing")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Load All Plugin Images…", action: onLoadAllImages)
+                        .disabled(imageScanIsRunning || missingImageCount == 0)
+                }
             }
 
             Divider()

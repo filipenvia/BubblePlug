@@ -1,5 +1,30 @@
 # PlugSpot --- Plano de Projeto
 
+## Requisitos inegociáveis do produto (2026-09-26)
+
+1. **Imagens dos plugins são a função principal do BubblePlug.** A biblioteca
+   visual não está pronta se plugins do catálogo aparecem sem imagem. Iniciais
+   ou uma bolha genérica são apenas fallback temporário durante a preparação;
+   não contam como imagem nem como experiência visual concluída. O utilizador
+   pode optar por abrir a biblioteca sem esperar pela captura e iniciar a carga
+   completa mais tarde. Plugins sem recurso local continuam a precisar de uma
+   imagem antes de a biblioteca visual ser considerada pronta.
+2. **BubblePlug tem de ser leve durante a produção musical.** Não pode manter
+   scans recorrentes, carregar plugins em paralelo, consumir RAM com a biblioteca
+   inteira descodificada, nem competir de forma perceptível com o Live. Na primeira
+   preparação, plugins sem imagem devem ser abertos um de cada vez num processo
+   auxiliar VST3 incluído no BP; o BP fotografa a janela desse processo sem criar
+   tracks no Live. Depois de cada captura,
+   o editor e o processo são fechados. As imagens ficam em cache persistente e são descodificadas sob
+   procura, com memória limitada. Em aberturas seguintes, só plugins novos ou
+   ainda sem imagem entram na fila.
+
+Estes dois requisitos têm prioridade sobre conveniência de implementação. A
+preparação inicial pode demorar, mas tem de mostrar o plugin actual e progresso,
+   permitir pausa/continuação, fechar o processo auxiliar e não repetir trabalho já
+guardado. O fluxo só está pronto quando a biblioteca fica completa sem exigir
+scans demorados em cada arranque.
+
 ## Nome e identidade visual (2026-09-26)
 
 - Identidade visível: **BubblePlug**, com o logo aprovado de dois meios-knobs
@@ -24,7 +49,7 @@
 
 ------------------------------------------------------------------------
 
-## Estado actual e trabalho em falta (2026-09-25)
+## Estado atual e trabalho em falta (2026-09-26)
 
 **Implementado no código:** catálogo VST3 do Live, pesquisa, agrupamento
 provisório de variantes, Favorites/Recent, categorias locais, Vendors,
@@ -38,29 +63,36 @@ validados apenas porque compilam.
 
 ### Prioridades restantes
 
-1. **Validação manual no Ableton:** verificar carga simples e chain em tracks
-   relevantes; testar mixer, callbacks de alteração, escrita atómica, consulta
-   offline e recuperação depois de crash/reabertura. Verificar também bolha,
-   foco, Spaces e fecho normal do Live.
-2. **Snapshot útil por Set:** confirmar identidade/nome para Sets guardados e
-   não guardados; mostrar detalhes disponíveis; distinguir plugins ausentes e
-   variantes. O snapshot não substitui o `.als` e não inclui o estado privado
-   completo de plugins como Kontakt.
-3. **Acabamento da biblioteca:** decidir se as categorias locais podem exceder
-   seis cores exportáveis e se é necessária edição de tags livres; generalizar
-   classificação de VST2/VST3/CLAP/AU/Component e deduplicação de famílias.
-4. **Import/export:** executar um ciclo real de exportação Ableton com backup e
-   rollback verificados; permitir limpar relações importadas obsoletas.
-5. **Distribuição:** inicializar este directório como repositório Git e ligar ao
-   GitHub quando decidido; compilar/testar Apple Silicon e Universal, escolher
-   licença, criar instalador e decidir assinatura/notarização.
-6. **Registo para GitHub:** medir CPU/RAM e latência no Mac de referência só
-   depois da funcionalidade estar fechada.
+1. **Amanhã (2026-09-27) — partilha comunitária de imagens via GitHub:** desenhar e implementar a opção opt-in no primeiro arranque, comparar IDs exatos/versões dos plugins com um índice remoto compacto, descarregar imagens já contribuídas e deixar a captura local para os plugins sem imagem. Definir formato/versionamento do índice, limites de tamanho/cache e fluxo explícito de revisão e consentimento antes de qualquer contribuição. Confirmar condições de redistribuição das imagens e desenhar proteção contra associações incorretas. O BP deve continuar funcional offline com o catálogo local.
+2. **Concluir e medir a captura por host VST3 incluído no BP:** o helper baseado no SDK oficial da Steinberg já abre o editor da classe com nome exato, captura e termina fora do Live, incluindo classes em shells. Confirmar taxa de imagens corretas e tempo total no catálogo, tratar plugins sem editor próprio e casos que não desenham a janela na primeira tentativa. O helper não deve processar áudio nem ficar residente durante produção. A captura por track temporária do Live deixou de ser usada na preparação inicial.
+3. **Teste integral manual no Live:** verificar inserção simples e chains;
+   biblioteca e filtros; bolha, foco, atalho e lifecycle; mixer e snapshots;
+   import/export de Collections com backup e recuperação. O utilizador ainda
+   precisa de executar este ciclo no Ableton. Uma inserção do Pro-Q 4 já foi
+   confirmada, mas não valida os restantes fluxos.
+4. **Corrigir o que surgir no teste integral** e repetir as verificações
+   afetadas. A compilação não substitui a validação no Live.
+5. **Acabamento da biblioteca:** avaliar agrupamento de variantes e classificar
+   VST2/VST3/CLAP/AU/Component numa fase posterior; a V1 continua VST3. O limite
+   de seis categorias locais está decidido e implementado.
+6. **Chain Sets próprios:** secção persistente e exportação `.adg` implementadas
+   no código; falta validar os racks gerados no Ableton Live.
+7. **Medições reais:** recolher CPU, memória e latência no Mac Intel de
+   referência depois de fechar funcionalidades.
+8. **Compatibilidade e distribuição:** o build agora cria slices x86_64 e
+   arm64 e os junta num Universal; falta executar o slice arm64 num Mac Apple
+   Silicon e recolher feedback voluntário. Criar um instalador de utilizador
+   (os scripts existentes só instalam a integração local), testar
+   instalação/atualização/remoção, escolher licença e decidir
+   assinatura/notarização.
+9. **Publicação GitHub:** o repositório Git local já tem um commit inicial; falta
+   criar/autenticar o remoto e publicar depois de o utilizador confirmar o envio.
 
 A pré-validação de plugins foi removida a pedido do utilizador; plugins
 problemáticos podem continuar a fechar o Live. Não há ainda uma suite de testes
 no repositório. A compilação confirma que o código compila, não valida a
-integração real do Remote Script.
+integração real do Remote Script. Categorias BubblePlug limitam-se a seis,
+correspondendo às seis cores do Ableton disponíveis para esta organização.
 
 ------------------------------------------------------------------------
 
@@ -92,8 +124,9 @@ A experiência central é deliberadamente simples:
 O projeto começa como ferramenta de uso pessoal, mas será estruturado
 para poder ser publicado gratuitamente no GitHub.
 
-O objetivo inicial **não** é criar um host de VSTs, substituir o Browser
-inteiro do Ableton, criar uma DAW, gerir licenças de plugins,
+O objetivo inicial inclui apenas um host VST3 auxiliar para capturar imagens dos
+editores. Não inclui processar áudio, substituir o Browser inteiro do Ableton,
+criar uma DAW, gerir licenças de plugins,
 disponibilizar cloud sync ou suportar várias DAWs.
 
 ------------------------------------------------------------------------
@@ -115,7 +148,15 @@ Evitar:
 -   blur e efeitos gráficos dispendiosos sem benefício;
 -   processos residentes quando o Ableton está fechado;
 -   cloud e serviços web desnecessários;
--   alojar ou processar áudio/VSTs dentro do PlugSpot.
+-   alojar ou processar áudio/VSTs no processo principal do PlugSpot.
+
+**Critério de aceitação:** o catálogo indica claramente quando está visualmente
+incompleto e permite adiar a captura sem impedir o uso das restantes funções.
+A preparação inicial abre no máximo um
+editor VST3 de cada vez no helper, fecha-o após capturar e
+permite pausar/retomar. A imagem resolvida fica em cache persistente; a app
+descodifica apenas o que a interface precisa e limita a memória usada para
+previews. Não há novo scan completo em cada abertura.
 
 ### 2.2 Offline-first
 
@@ -232,7 +273,8 @@ Até lá, usar **PlugSpot** como codename/nome de projeto.
 -   macOS;
 -   Intel x86_64;
 -   Apple Silicon arm64;
--   Universal Binary se a toolchain permitir;
+-   Universal Binary (build cross-compiled; arm64 runtime still awaiting
+    Apple Silicon hardware feedback);
 -   Ableton Live 12.4.2 como baseline testada; patches 12.4 posteriores são aceites com aviso até validação;
 -   VST3;
 -   funcionamento offline;
@@ -781,9 +823,13 @@ Nenhuma informação sai do computador.
 
 ### Decisão V1
 
-As imagens não são empacotadas nem descarregadas. O PlugSpot procura recursos
-locais nos bundles VST3 que o Ableton já reconheceu; a procura acontece em
-segundo plano e apenas para cartões visíveis.
+As imagens não são empacotadas nem descarregadas. Na primeira abertura com um
+catálogo novo, o BubblePlug procura imagens locais em `~/Library/Application
+Support` e `/Library/Application Support`, depois nos bundles VST3 reconhecidos
+pelo Ableton. Mostra uma barra de progresso de 0 a 100% com a indicação de que
+mais plugins podem prolongar a preparação. Guarda um índice e miniaturas em
+disco; nas aberturas seguintes, os cartões leem esse índice sem repetir a
+procura. Um novo catálogo ou scan do Ableton inicia nova preparação.
 
 ### Razão
 
@@ -829,42 +875,104 @@ direitos/licenciamento das imagens.
 #### C --- cache local de recursos instalados
 
 Imagens selecionadas são reduzidas e guardadas em `~/Library/Caches/PlugSpot/Artwork`.
-O cache tem limite de 32 MB e remove os itens mais antigos para se manter abaixo
-de 24 MB quando ultrapassa o limite. Não é uma base de dados de imagens e não
-entra no `.app`; só contém imagens de plugins instalados naquele computador.
+O índice guarda o caminho de cada miniatura encontrada e fica fora do `.app`.
+As imagens são lidas da cache de disco quando aparecem na interface; o BP
+limita a quantidade de imagens descodificadas que mantém em memória.
 Quando o bundle não fornece arte apropriada, a interface mostra as iniciais do
 plugin ou fabricante.
 
 #### D --- imagem personalizada
 
-Permitir ao utilizador escolher imagem.
+O menu `Missing Images…` lista plugins e fabricantes sem imagem. `Load Image…`
+permite escolher uma imagem local para cada item. A escolha é copiada para
+`~/Library/Application Support/PlugSpot/CustomArtwork`, permanece após um novo
+scan e substitui a imagem encontrada automaticamente.
+
+O scan local procura primeiro snapshots VST3 pelo CID exato em `moduleinfo.json`.
+Os restantes ficheiros só são aceites quando o nome do plugin aparece como nome
+exato do ficheiro ou pasta, com dimensões de imagem adequadas. Correspondências
+parciais como `EchoBoy` dentro de `EchoBoy Jr` e nomes genéricos como `background`
+deixam de ser aceites. O scan continua a consultar Application Support e os
+bundles VST3, mas não abre nem instancia plugins.
+
+Na primeira preparação, o BP abre sequencialmente cada plugin VST3 que ainda não
+tem imagem num host auxiliar incluído na app, fotografa a janela do editor e fecha esse
+processo antes de avançar. O Live não recebe plugins nem tracks temporárias.
+O helper escolhe a classe exata dentro do bundle, incluindo shells; se a imagem
+vier preta ou branca, espera pelo editor e só guarda conteúdo visível. A captura
+é feita pelo processo principal do BP com a permissão Screen Recording da app;
+o helper não precisa de uma permissão separada.
+Plugins novos ou ainda sem imagem são os únicos a repetir este processo em
+aberturas futuras. A captura oportunista após uma inserção normal também pode
+preencher uma imagem em falta.
+
+**Regra de prontidão:** cada plugin do catálogo precisa de uma imagem atribuída
+para a experiência visual estar completa. O utilizador pode adiar a captura e usar
+a biblioteca com placeholders, iniciar a carga completa mais tarde e substituir
+imagens já guardadas. O progresso aparece num painel discreto junto à Dock.
+Plugins por ativar ou nunca usados podem mostrar ecrãs de configuração ou erro:
+estas capturas não devem ser tratadas como interfaces válidas. Não voltar a
+executar scans completos em cada abertura: usar um índice persistente e atualizar
+apenas plugins novos ou alterados.
 
 ### Estado
 
-**Implementado (2026-09-25):** logótipos e imagens locais em cartões/lista,
-descoberta por pedido em segundo plano, cache pessoal limitado e fallback de
-iniciais. Sem downloads, instalação de plugins ou crescimento do pacote da app.
-O conteúdo exacto depende dos recursos incluídos pelo fabricante em cada VST3.
+**Em implementação:** há imagens locais em
+cartões/lista, correspondência estrita por snapshot/CID ou nome exato, cache em
+disco e captura oportunista. O helper VST3 foi compilado e integrado em Intel e
+Apple Silicon, e capturou editores reais de HOFA, Waves, A1StereoControl e
+FabFilter. A primeira corrida completa, com espera mínima de 4 segundos, está
+documentada em `artifacts/artwork-scan-report-20260926.md`: 971 ficheiros
+capturados, 12 falhas e pelo menos 38 imagens impróprias. A segunda corrida,
+com 1,10 segundos, está em curso. A biblioteca visual continua incompleta até
+cada plugin ter uma imagem válida, mas pode ser utilizada sem aguardar o scan.
 
 ------------------------------------------------------------------------
 
 ## 14. Chains
 
-**Decisão actualizada:** o MVP inclui uma fila temporária de plugins para
-construir e carregar uma chain. Um clique acrescenta o plugin à fila; a fila
-permite remover itens e alterar a ordem antes de carregar. A chain não fica
-guardada entre sessões nesta fase.
+**Implementado:** fila temporária de plugins para construir e carregar uma
+chain. Um clique acrescenta o plugin à fila; a fila permite remover itens e
+alterar a ordem antes de carregar. A fila actual não fica guardada entre
+sessões.
+
+**Implementado no código:** secção própria **Chain Sets** com gravação local da
+fila atual, listagem, carregamento de volta para a fila, renomeação e remoção.
+Os sets persistem na base de dados local entre sessões. A fila de plugins
+continua temporária até ser guardada como um set.
+Um clique num set expande os plugins por baixo do nome e prepara a fila para
+editar; `Save Changes` atualiza o set. As imagens aparecem também na fila,
+com símbolo local e iniciais como alternativa imediata.
+Na fila, um cartão pode ser seleccionado para alterar a variante de canal
+(por exemplo Mono/Stereo) antes de carregar; os cartões podem ser arrastados
+para mudar a ordem.
+
+**Implementado no código (ainda sem validação final no Live):** botão `Export
+.adg` em cada Chain Set. Gera um rack comprimido Ableton a partir dos IDs VST3
+exatos; os plugins ficam em série na mesma chain e são instanciados no estado
+predefinido. São aceites cadeias só de efeitos de áudio ou um instrumento no
+início seguido por efeitos de áudio. MIDI effects, mais de um instrumento ou
+uma ordem incompatível são recusados com uma explicação, em vez de produzirem
+um rack com sinal diferente do esperado.
 
 Um duplo clique carrega imediatamente esse plugin e minimiza a janela PlugSpot
 para uma bolha flutuante que reabre a janela.
 
 Possibilidades:
 
-### Ableton .adg
+### Exportação Ableton `.adg`
 
-O Live já suporta Device Groups/Racks.
+`.adg` é o formato Ableton para grupos de dispositivos/Racks. A exportação
+pretendida converte cada Chain Set num rack que o Live possa carregar. Este
+formato contém uma árvore real de dispositivos e pode conter estado de plugins;
+uma lista de IDs de plugins, por si só, não constitui um preset `.adg` válido.
+O exportador usa um template Audio Effect Rack do Live e um template Instrument
+Rack de código aberto; limpa o estado do preset e preenche os IDs VST3 e a ordem
+dos dispositivos. Não inclui estado/preset privado. O ficheiro gerado tem de ser
+aberto/arrastado para o Live para validar a serialização e a inicialização dos
+plugins antes de declarar compatibilidade confirmada.
 
-Potencial:
+Fluxo pretendido:
 
 ``` text
 PlugSpot
@@ -876,30 +984,9 @@ Vocal Chain
 load .adg
 ```
 
-Isto poderá ser muito mais robusto do que o PlugSpot tentar carregar
-manualmente quatro VSTs e reconstruir routing.
-
-### Chains próprias PlugSpot guardadas
-
-Possível futuro:
-
-``` text
-Vocal Basic
-1. Pro-Q
-2. Pro-C
-3. Soothe
-4. Saturn
-```
-
-Guardar chains para utilização posterior fica para futuro e levanta questões de:
-
--   ordem;
--   parâmetros;
--   presets;
--   plugins em falta;
--   compatibilidade.
-
-Não implementar sem necessidade.
+Chain Sets guardados descrevem a ordem e as variantes de plugins. Se um plugin
+não estiver instalado, o Live pode mostrar um dispositivo em falta ao abrir o
+rack. O estado privado/preset interno de cada plugin não é exportado.
 
 ------------------------------------------------------------------------
 
@@ -1191,8 +1278,10 @@ Implementar:
 
 ### P1.1 --- Criar app Swift/SwiftUI Universal
 
-**Estado:** a app local compila para x86_64 neste Mac Intel. Apple Silicon e
-Universal continuam por compilar e testar.
+**Estado (2026-09-26):** o script compila x86_64 e arm64 separadamente e junta
+as duas slices num bundle Universal. A slice Intel foi compilada neste Mac; a
+slice arm64 foi cross-compilada, mas ainda não foi executada num Mac Apple
+Silicon. A execução real precisa de feedback voluntário.
 
 Targets:
 
@@ -1239,13 +1328,12 @@ Implementar:
 -   clique;
 -   baixo consumo.
 
-**Implementado (2026-09-25):** a janela principal é ocultada no arranque e a
-bolha aparece depois de a bridge do Live responder. A janela é ocultada com
-`orderOut`, sem criar uma miniatura minimizada no Dock. A bolha fica na camada
-normal das janelas, sem `always-on-top`, e acompanha a janela do Live. O primeiro
-posicionamento é no canto superior esquerdo do Live. Arrastar move a bolha e
-guarda a posição relativamente à janela do Live; Settings permite bloquear a
-posição. Teste visual em runtime ainda pendente.
+**Implementado:** a janela principal é ocultada no arranque e a bolha aparece
+depois de a bridge do Live responder. A janela é ocultada com `orderOut`, sem
+criar uma miniatura no Dock. A bolha acompanha a janela do Live e surge por
+defeito no canto inferior esquerdo, com margem. O arrasto usa a posição global
+do cursor e guarda a posição relativamente à janela do Live; Settings permite
+bloquear e repor a posição. Teste visual em runtime ainda pendente.
 
 **Requisito adicional:** a bolha deve acompanhar a janela do Ableton ao mover,
 redimensionar ou passar para ecrã inteiro, incluindo quando o Live usa um
@@ -1409,12 +1497,13 @@ falta uma revisão que permita remover relações obsoletas importadas.
 ### P3.7 --- Exportar Collections para o Live
 
 **Implementado; falta a primeira execução completa pelo utilizador.** O menu faz
-uma pré-validação só de leitura, bloqueia se algum plugin favorito/categorizado
+uma verificação prévia só de leitura, bloqueia se algum plugin favorito/categorizado
 não tiver uma correspondência única de família no catálogo VST3 e mostra quantos
 itens globais do Browser serão limpos. Após confirmação, pede ao Live para sair;
 o prompt nativo do Live permite guardar um Set alterado ou cancelar a saída. O
 launcher aguarda o fim do processo Live, cria backups, actualiza `Library.cfg`
-e aplica as máscaras de cor numa transacção SQLite, depois reabre Live. Se Live
+e aplica as máscaras de cor numa transacção SQLite, com diário durável para
+recuperar os backups em caso de interrupção, depois reabre Live. Se Live
 continuar activo, se faltar espaço para backup ou se uma verificação falhar, os
 ficheiros não são alterados. A Browser API não expõe escrita de Collections,
 por isso esta operação offline coordenada é específica do Live 12.4.2 validado.
@@ -1608,7 +1697,7 @@ nem consumo real SwiftUI. Repetir em runtime no Mac Intel quando Live e a app
 estiverem abertos e o catálogo carregado; recolher baseline idle e durante
 pesquisa/scroll com Instruments ou `sample`/`ps`.
 
-### P5.10 --- Pré-verificação e proteção contra plugins instáveis
+### P5.10 --- Histórico: validação de segurança de plugins removida
 
 **Decisão actual (2026-09-25):** removida por pedido do utilizador. O PlugSpot
 envia a carga directamente ao Ableton; não executa pluginval, o validador
@@ -1625,8 +1714,10 @@ como histórico, não como plano actual. Referências: [Ableton — Plug-ins Tip
 Troubleshooting](https://help.ableton.com/hc/en-us/articles/5232428442002-Plug-ins-Tips-and-Troubleshooting),
 [Steinberg VST3 Validator](https://github.com/steinbergmedia/vst3_public_sdk/tree/master/samples/vst-hosting/validator).
 
-**Limpeza pendente:** remover fontes e artefactos de build de validação que já
-não são referenciados, sem alterar o fluxo directo de carga.
+**Limpeza de código concluída (2026-09-26):** removidos o helper, o script de
+build, o alvo de validação do scanner, a API/cache SQLite e o schema da tabela
+para novas bases de dados. Tabelas antigas permanecem intactas. O fluxo de carga
+continua directo; a validação de plugins não faz parte do plano actual.
 
 ------------------------------------------------------------------------
 
@@ -1800,6 +1891,12 @@ está implementado nem garantido.
 
 ### Q10 --- Chains próprias
 
+**Pedido registado (2026-09-26):** implementar Chain Sets persistentes com
+criação, edição, remoção e exportação `.adg`. O formato `.adg` corresponde a
+presets de Device Group/Rack do Ableton; a compatibilidade dos ficheiros gerados
+tem de ser verificada no Live antes de prometer compatibilidade. A exportação já
+está implementada no código, com limites de tipo/ordem documentados na Secção 14.
+
 ### Q11 --- Inserção entre devices
 
 ### Q12 --- Extensions SDK substituir Remote Script
@@ -1813,13 +1910,15 @@ está implementado nem garantido.
 | Catálogo VST3 e UDS | Executado no Live 12.4.2; 1.373 entradas no snapshot de referência | Refresh real após instalar/remover plugins |
 | Carga simples | Utilizador confirmou FabFilter Pro-Q 4 numa track de áudio | Repetição, track MIDI, Return, Master e plugins adicionais |
 | Chain temporária | Implementada no código | Ordem, primeiro erro e vários loads em Live |
+| Chain Sets locais | Implementados no código | Guardar, reabrir, renomear, remover e verificar persistência entre sessões |
+| Export Chain Set `.adg` | Implementado no código | Gerar racks para FX e instrumento+FX; abrir ficheiros em Live e validar ordem/estado |
 | Categorias e export JSON | Implementadas no código | Merge/reimport e round-trip de todas as categorias/dados |
 | Export Collections Live | Preflight real feito | Um ciclo completo com backup, rollback e reabertura |
 | Bolha/lifecycle | Código implementado | Spaces, fullscreen, foco, arrasto, fecho normal e crash |
 | Mixer/snapshot | Código implementado; build passou | Listeners, debounce, snapshot legível e crash/restart num Set real |
 | Recuperação offline | Browser de snapshots implementado | Abrir arquivo real quando Live está fechado/terminou abruptamente |
 | Performance | Benchmark sintético do catálogo | CPU/RAM/latência reais no Mac Intel; Apple Silicon |
-| Empacotamento | App local x86_64 compilada | Universal/arm64, instalador, licença, signing/notarization |
+| Empacotamento | Builds x86_64, arm64 e Universal compilados; arm64 sem teste de hardware | Instalador, licença, signing/notarization e feedback runtime Apple Silicon |
 
 Apenas a carga Pro-Q 4 está confirmada directamente pelo utilizador. Os restantes
 itens são estados de implementação, não resultados de validação manual.
@@ -1831,7 +1930,8 @@ itens são estados de implementação, não resultados de validação manual.
 O MVP ainda não está pronto para distribuição. Além dos fluxos de biblioteca e
 carga, os requisitos de conclusão incluem: lifecycle e bolha verificados,
 carregamento de chains validado, export Collections verificado com backup,
-recuperação de snapshots testada, build Apple Silicon/Universal, instalador,
+recuperação de snapshots testada, execução do slice arm64 em hardware Apple
+Silicon, instalador,
 licença e documentação de utilizador. O comportamento depois de carregar um
 plugin continua a ser o próprio Ableton a instanciar o plugin; não há validador
 prévio por decisão do utilizador.
@@ -2165,7 +2265,8 @@ Temos como decisões firmes:
 -   isolamento da integração Ableton;
 -   SQLite como preferência;
 -   captura de screenshots de GUI adiada; lookup de arte local implementado;
--   fila temporária de chains implementada; chains persistentes adiadas;
+-   fila temporária, Chain Sets persistentes e exportação `.adg` implementados;
+    falta validar ficheiros gerados no Live;
 -   recuperação integral de presets de terceiros não prometida.
 
 ------------------------------------------------------------------------
@@ -2178,7 +2279,8 @@ Temos como decisões firmes:
 4.  lifecycle e comportamento visual da bolha em Spaces, fullscreen e monitores;
 5.  ciclo real de export Collections, incluindo backup e rollback;
 6.  CPU/RAM/latência no iMac Intel depois de fechadas as funcionalidades;
-7.  build e teste Apple Silicon/Universal, instalador, licença e publicação.
+7.  teste runtime do slice arm64 em Apple Silicon, instalador, licença e
+    publicação (os builds arm64 e Universal já são produzidos pelo script).
 
 A carga do FabFilter Pro-Q 4 por PlugSpot já foi confirmada pelo utilizador.
 A pré-validação de plugins foi retirada e não faz parte desta lista.
@@ -2187,10 +2289,9 @@ A pré-validação de plugins foi retirada e não faz parte desta lista.
 
 # 38. Próxima ação
 
-Validar no Ableton um Set real com snapshots: confirmar que a superfície
-PlugSpot inicia, que há um snapshot inicial, que inserir/alterar um dispositivo
-o actualiza após o debounce, e que o arquivo pode ser aberto depois de o Live
-fechar ou crashar. Depois validar o carregamento da fila de chain e um ciclo
-completo de exportação Collections. O Sprint 0 não precisa de ser repetido; a
+Instalar a versão atualizada do Remote Script e executar o teste integral manual
+no Ableton: arranque e encerramento, bolha, pesquisa e filtros, inserção simples
+e chains, mixer e recuperação de snapshots, e exportação de Collections com
+backup e rollback. O Sprint 0 não precisa de ser repetido; a
 bridge/catalogação estão demonstradas e o utilizador já confirmou uma carga do
 FabFilter Pro-Q 4.

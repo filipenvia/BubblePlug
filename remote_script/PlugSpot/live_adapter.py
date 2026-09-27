@@ -66,15 +66,15 @@ class LiveAdapter:
                 "set_path": str(getattr(self._song, "file_path", "")),
                 "set_id": self._unsaved_set_id,
                 "live_version": self.get_live_version(),
-                "tracks": [self._mixer_track(track, "track") for track in self._song.tracks],
-                "return_tracks": [self._mixer_track(track, "return") for track in self._song.return_tracks],
-                "master_track": self._mixer_track(self._song.master_track, "master"),
+                "tracks": [self._mixer_track(track, "track", "track:%s" % index) for index, track in enumerate(self._song.tracks)],
+                "return_tracks": [self._mixer_track(track, "return", "return:%s" % index) for index, track in enumerate(self._song.return_tracks)],
+                "master_track": self._mixer_track(self._song.master_track, "master", "master"),
             }
         except Exception as exc:
             raise LiveAdapterError("mixer_unavailable", "Could not read Live mixer", True) from exc
 
     @classmethod
-    def _mixer_track(cls, track, fallback_kind):
+    def _mixer_track(cls, track, fallback_kind, identity):
         try:
             if fallback_kind in ("master", "return"):
                 kind = fallback_kind
@@ -85,17 +85,17 @@ class LiveAdapter:
             else:
                 kind = "audio"
             return {
-                "id": str(getattr(track, "id", "")),
+                "id": identity,
                 "name": str(getattr(track, "name", "")),
                 "kind": kind,
                 "color": getattr(track, "color", None),
                 "volume": cls._mixer_parameter(track, "volume"),
                 "pan": cls._mixer_parameter(track, "panning"),
-                "devices": [cls._mixer_device(device) for device in getattr(track, "devices", [])
+                "devices": [cls._mixer_device(device, "%s/device:%s" % (identity, index)) for index, device in enumerate(getattr(track, "devices", []))
                             if getattr(device, "class_name", "") != "MixerDevice"],
             }
         except Exception:
-            return {"id": str(getattr(track, "id", "")), "name": str(getattr(track, "name", "")),
+            return {"id": identity, "name": str(getattr(track, "name", "")),
                     "kind": fallback_kind, "color": None, "volume": None, "pan": None, "devices": []}
 
     @staticmethod
@@ -106,14 +106,14 @@ class LiveAdapter:
             return None
 
     @classmethod
-    def _mixer_device(cls, device):
+    def _mixer_device(cls, device, identity):
         chains = []
         if bool(getattr(device, "can_have_chains", False)):
-            for chain in getattr(device, "chains", []):
+            for chain_index, chain in enumerate(getattr(device, "chains", [])):
                 chains.append({
-                    "id": str(getattr(chain, "id", "")),
+                    "id": "%s/chain:%s" % (identity, chain_index),
                     "name": str(getattr(chain, "name", "")),
-                    "devices": [cls._mixer_device(nested) for nested in getattr(chain, "devices", [])
+                    "devices": [cls._mixer_device(nested, "%s/chain:%s/device:%s" % (identity, chain_index, index)) for index, nested in enumerate(getattr(chain, "devices", []))
                                 if getattr(nested, "class_name", "") != "MixerDevice"],
                 })
         preset_name, preset_index = cls._mixer_preset(device)
@@ -128,7 +128,7 @@ class LiveAdapter:
                 })
         except Exception:
             pass
-        return {"id": str(getattr(device, "id", "")), "name": str(getattr(device, "name", "")),
+        return {"id": identity, "name": str(getattr(device, "name", "")),
                 "class_name": str(getattr(device, "class_name", "")), "chains": chains,
                 "preset_name": preset_name, "preset_index": preset_index, "parameters": parameters}
 
@@ -198,7 +198,7 @@ class LiveAdapter:
             self._add_mixer_listener(device, name)
         for parameter in getattr(device, "parameters", []):
             self._add_mixer_listener(parameter, "value")
-        for chain in getattr(device, "chains", []):
+        for chain_index, chain in enumerate(getattr(device, "chains", [])):
             for name in ("name", "devices", "mute", "solo"):
                 self._add_mixer_listener(chain, name)
             for nested in getattr(chain, "devices", []):

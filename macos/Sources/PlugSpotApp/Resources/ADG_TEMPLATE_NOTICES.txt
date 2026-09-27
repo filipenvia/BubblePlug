@@ -1,0 +1,8 @@
+InstrumentRackTemplate.xml is adapted from the instrument_rack.adg.j2 template in
+pdubs10/ableton-pack-generator (https://github.com/pdubs10/ableton-pack-generator),
+licensed under WTFPL 2.0. The template's embedded plugin state and macro mappings
+were removed; BubblePlug fills VST3 class IDs at export time.
+
+AudioEffectRackTemplate.adg is Ableton Live's empty Audio Effect Rack preset,
+used only as the device-group XML skeleton. BubblePlug replaces its chain devices
+with VST3 device preset entries when exporting.

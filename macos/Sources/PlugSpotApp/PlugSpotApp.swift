@@ -2,6 +2,7 @@ import PlugSpotCore
 import AppKit
 import CoreGraphics
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct PlugSpotApp: App {
@@ -35,19 +36,63 @@ private func requestPlugSpotQuit() {
     NSApp.terminate(nil)
 }
 
+private func openScreenRecordingSettings() {
+    guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else { return }
+    NSWorkspace.shared.open(url)
+}
+
+private struct AboutBubblePlugView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development build"
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            PlugSpotAudioMark(size: 82)
+            VStack(spacing: 4) {
+                Text("BubblePlug")
+                    .font(.title2.weight(.bold))
+                Text("Version \(version)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Divider()
+            Text("A visual plug-in library and chain manager for Ableton Live.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Label("Made for music production", systemImage: "slider.horizontal.3")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(PlugSpotPalette.cyan)
+            Button("Done") { dismiss() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .padding(.top, 4)
+        }
+        .padding(24)
+        .frame(width: 340)
+        .modifier(BubblePlugSurface())
+    }
+}
+
 private struct PlugSpotView: View {
-    @State private var bubbleController = PlugSpotBubbleController()
+    @State private var bubbleController: PlugSpotBubbleController
     @StateObject private var artworkStore = PluginArtworkStore()
     @State private var didInitializeWindow = false
     @State private var windowButtonTarget: PlugSpotWindowButtonTarget?
     @State private var scope: PluginListScope = .all
     @State private var isMixerVisible = false
+    @State private var isAboutPresented = false
     @AppStorage("plugspot.displayMode") private var displayModeRaw = PluginDisplayMode.list.rawValue
     @AppStorage("plugspot.cachedLiveVersion") private var cachedLiveVersion = ""
     @AppStorage("plugspot.cachedCatalogJSON") private var cachedCatalogJSON = Data()
+    @AppStorage("plugspot.cachedScannerModification") private var cachedScannerModification = 0.0
     @AppStorage("plugspot.bubble.scale") private var bubbleScale = 1.0
     @AppStorage("plugspot.bubble.transparency") private var bubbleTransparency = 0.0
     @AppStorage("plugspot.bubble.position.locked") private var bubblePositionLocked = false
+    @AppStorage("plugspot.images.startupMode") private var imageStartupMode = "ask"
     @AppStorage("plugspot.shortcut.keyCode") private var shortcutKeyCode = 35
     @AppStorage("plugspot.shortcut.modifiers") private var shortcutModifiers = 0x1800
     @AppStorage("plugspot.shortcut.label") private var shortcutLabel = "⌃⌥P"
@@ -58,6 +103,11 @@ private struct PlugSpotView: View {
     @State private var selectedFamilyID: String?
     @State private var selectedVariantID: String?
     @State private var chainQueue: [QueuedPlugin] = []
+    @State private var selectedQueuedPluginID: UUID?
+    @State private var chainSets: [StoredChainSet] = []
+    @State private var activeChainSetID: String?
+    @State private var editingChainSetID: String?
+    @State private var editingChainSetName = ""
     @State private var favoriteIDs: Set<String> = []
     @State private var favoriteRecords: [LocalPluginRecord] = []
     @State private var recentRecords: [LocalPluginRecord] = []
@@ -79,15 +129,23 @@ private struct PlugSpotView: View {
     @State private var isCategoryManagerPresented = false
     @State private var isPreparingAbletonExport = false
     @State private var isSettingsPresented = false
+    @State private var isMissingArtworkPresented = false
+    @State private var artworkManagerShowsImages = false
+    @State private var imageProgressPanel = ImageCaptureProgressPanel()
     @State private var shortcutStatus = ""
     @State private var globalHotKeyController: PlugSpotGlobalHotKeyController?
     @State private var showAbletonExportConfirmation = false
     @State private var showAbletonExportError = false
     @State private var abletonExportError = ""
+    @State private var activeExportPanel: NSSavePanel?
     @State private var abletonExportDocument: PlugSpotLibraryDocument?
     @State private var abletonExportPreflight: AbletonExportPreflight?
     private let library = AbletonLibrary()
     private let localStore: LocalLibraryStore? = try? LocalLibraryStore()
+
+    init(bubbleController: PlugSpotBubbleController = PlugSpotBubbleController()) {
+        _bubbleController = State(initialValue: bubbleController)
+    }
 
     private var pluginFamilies: [PluginFamily] {
         catalogFamilies
@@ -109,6 +167,8 @@ private struct PlugSpotView: View {
             guard let selectedVendorFilter else { return [] }
             let vendorKey = normalizedText(selectedVendorFilter)
             scopedFamilies = pluginFamilies.filter { normalizedText($0.vendor) == vendorKey }
+        case .chainSets:
+            return []
         }
         if scope != .vendors, let selectedVendorFilter {
             let vendorKey = normalizedText(selectedVendorFilter)
@@ -169,6 +229,13 @@ private struct PlugSpotView: View {
         return FileManager.default.fileExists(atPath: scriptURL.path)
     }
 
+    private func scannerModification(for version: String) -> Double {
+        let scanner = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/Ableton/Live \(version)/PluginScanner.txt")
+        return (try? FileManager.default.attributesOfItem(atPath: scanner.path)[.modificationDate] as? Date)?
+            .timeIntervalSince1970 ?? 0
+    }
+
     private var bridgeUnavailableMessage: String {
         guard isAbletonLiveRunning else {
             return "Waiting for Ableton Live. PlugSpot will keep trying to connect."
@@ -188,7 +255,15 @@ private struct PlugSpotView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                PlugSpotAudioMark()
+                Button {
+                    isAboutPresented = true
+                } label: {
+                    PlugSpotAudioMark()
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("About BubblePlug")
+                .accessibilityLabel("About BubblePlug")
                 Text("BubblePlug")
                     .font(.title2.weight(.semibold))
                 Spacer()
@@ -202,32 +277,94 @@ private struct PlugSpotView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .help("Refresh Ableton Live plugin list")
-                .disabled(isLoadingLibrary)
+                .disabled(isLoadingLibrary || artworkStore.isCapturingFirstRunImages)
                 Menu {
-                    Section {
+                    Section("Preferences") {
                         Button("Settings…") { isSettingsPresented = true }
+                        Button("Manage Categories…") { isCategoryManagerPresented = true }
                     }
-                    Section {
-                        Button("Import Ableton Collections…", action: importAbletonOrganization)
+                    Section("Ableton Live") {
+                        Button("Import Live Collections…", action: importAbletonOrganization)
                             .disabled(isImportingOrganization)
-                        Button("Import BubblePlug Library…", action: importPlugSpotLibrary)
-                        Button("Export JSON Backup…", action: exportPlugSpotLibrary)
-                        Button("Export Collections to Ableton…", action: prepareAbletonExport)
+                        Button("Export Collections to Live…", action: prepareAbletonExport)
                             .disabled(isPreparingAbletonExport)
                     }
-                    Section {
-                        Button("Manage Categories…") { isCategoryManagerPresented = true }
+                    Section("BubblePlug Library") {
+                        Button("Import Library Backup…", action: importPlugSpotLibrary)
+                        Button("Export Library Backup…", action: exportPlugSpotLibrary)
+                    }
+                    Section("Plugin Images") {
+                        Button("Manage Plugin Images…") { isMissingArtworkPresented = true }
+                            .disabled(artworkStore.isPreparing || artworkStore.isCapturingFirstRunImages || catalogFamilies.isEmpty)
+                        Button("Load All Plugin Images…", action: loadAllPluginImages)
+                            .disabled(artworkStore.isPreparing || artworkStore.isCapturingFirstRunImages || catalogFamilies.isEmpty)
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                        .frame(width: 30, height: 30)
                 }
-                .help("Import and export library")
+                .help("Settings, Ableton, library and image tools")
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(width: 32)
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .padding(.bottom, 12)
 
-            if isMixerVisible {
+            if artworkStore.isPreparing {
+                VStack(spacing: 16) {
+                    Spacer()
+                    PlugSpotAudioMark()
+                        .frame(width: 64, height: 64)
+                    Text(artworkStore.isCapturingFirstRunImages ? "Capturing VST3 plugin images" : "Preparing plugin images")
+                        .font(.title3.weight(.semibold))
+                    ProgressView(value: artworkStore.isCapturingFirstRunImages ? artworkStore.captureProgress : artworkStore.preparationProgress)
+                        .frame(maxWidth: 380)
+                    Text(artworkStore.isCapturingFirstRunImages
+                         ? "\(Int(artworkStore.captureProgress * 100))% · \(artworkStore.captureCurrentPlugin)"
+                         : "\(Int(artworkStore.preparationProgress * 100))%")
+                        .monospacedDigit()
+                    Text(artworkStore.isCapturingFirstRunImages
+                         ? "BubblePlug opens one plugin editor at a time in its image helper. The scan does not add tracks or plugins to your Live Set."
+                         : "Checking exact VST3 snapshots and clearly named local artwork before capturing the remaining plugin editors.")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: 420)
+                    if artworkStore.isCapturingFirstRunImages {
+                        Text(artworkStore.captureStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Pause Image Scan") { artworkStore.cancelFirstRunImageCapture() }
+                            .buttonStyle(.bordered)
+                    }
+                    Spacer()
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if imageStartupMode == "ask" && artworkStore.missingPluginImageCount > 0 && !catalogFamilies.isEmpty {
+                VStack(spacing: 14) {
+                    PlugSpotAudioMark().frame(width: 56, height: 56)
+                    Text("Prepare Plugin Images")
+                        .font(.title3.weight(.semibold))
+                    Text("\(artworkStore.missingPluginImageCount) plugin images are missing. You can capture them now or open BubblePlug and do this later.")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: 460)
+                    Text("Plugins that need activation or have never been opened may show a setup, activation, or error screen instead of their editor. You can replace any image later.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    HStack {
+                        Button("Load Images Now") { imageStartupMode = "scan"; loadAllPluginImages() }
+                        .buttonStyle(.borderedProminent)
+                        Button("Open Without Loading") { imageStartupMode = "defer" }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if isMixerVisible {
                 MixerView(library: library)
             } else {
 
@@ -243,13 +380,17 @@ private struct PlugSpotView: View {
                 selectedFamilyID = nil
                 selectedVariantID = nil
                 if newScope != .vendors { selectedVendorFilter = nil }
+                if newScope == .chainSets { loadChainSets() }
             }
 
+            if scope == .chainSets {
+                chainSetsView
+            } else {
             Group {
             if scope == .vendors, let selectedVendorFilter {
                 HStack(spacing: 8) {
                     Button { self.selectedVendorFilter = nil } label: {
-                        Label("All Vendors", systemImage: "chevron.left")
+                        Label("All Manufacturers", systemImage: "chevron.left")
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
@@ -269,7 +410,7 @@ private struct PlugSpotView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search plugins or vendors", text: $searchText)
+                TextField("Search plugins or manufacturers", text: $searchText)
                     .textFieldStyle(.plain)
                 .onSubmit(loadChain)
                 if !searchText.isEmpty {
@@ -324,7 +465,7 @@ private struct PlugSpotView: View {
                 )
             } else if scope == .vendors && selectedVendorFilter == nil {
                 if filteredVendorOptions.isEmpty {
-                    emptyState(title: "No Vendors Found", symbol: "building.2", detail: "Try a different search.")
+                    emptyState(title: "No Manufacturers Found", symbol: "building.2", detail: "Try a different search.")
                 } else {
                     vendorResultsView
                 }
@@ -336,6 +477,7 @@ private struct PlugSpotView: View {
                 )
             } else {
                 pluginResultsView
+            }
             }
 
             Group {
@@ -403,6 +545,9 @@ private struct PlugSpotView: View {
                     plugins = cachedPlugins
                     catalogFamilies = PluginFamily.group(cachedPlugins)
                     liveVersion = cachedLiveVersion
+                    if scannerModification(for: cachedLiveVersion) <= cachedScannerModification {
+                        prepareArtworkForCatalog(version: cachedLiveVersion)
+                    }
                     isLiveVersionSupported = true
                     status = "Using saved Ableton Live catalog · \(catalogFamilies.count) plugins. Refresh to scan Live."
                     readAbletonExportResult()
@@ -414,13 +559,21 @@ private struct PlugSpotView: View {
         }
         .onDisappear {
             connectionMonitor?.cancel()
+            imageProgressPanel.hide()
         }
+        .onChange(of: artworkStore.isCapturingFirstRunImages) { _ in updateImageProgressPanel() }
+        .onChange(of: artworkStore.captureProgress) { _ in updateImageProgressPanel() }
+        .onChange(of: artworkStore.captureCurrentPlugin) { _ in updateImageProgressPanel() }
+        .onChange(of: artworkStore.isPreparing) { _ in updateImageProgressPanel() }
+        .onChange(of: artworkStore.preparationProgress) { _ in updateImageProgressPanel() }
         .sheet(isPresented: $isCategoryManagerPresented) {
             CategoryManagerView(categories: categories) { updated in
                 saveCategories(updated)
             }
         }
         .sheet(isPresented: $isSettingsPresented) { settingsSheet }
+        .sheet(isPresented: $isMissingArtworkPresented) { missingArtworkSheet }
+        .sheet(isPresented: $isAboutPresented) { AboutBubblePlugView() }
         .confirmationDialog(
             "Replace Ableton Collections?",
             isPresented: $showAbletonExportConfirmation,
@@ -454,6 +607,10 @@ private struct PlugSpotView: View {
             shortcutModifiers: $shortcutModifiers,
             shortcutLabel: $shortcutLabel,
             shortcutStatus: $shortcutStatus,
+            imageStartupMode: $imageStartupMode,
+            imageScanIsRunning: artworkStore.isPreparing || artworkStore.isCapturingFirstRunImages,
+            missingImageCount: artworkStore.missingPluginImageCount,
+            onLoadAllImages: loadAllPluginImages,
             onRecordingChanged: { isRecording in
                 if isRecording { globalHotKeyController?.unregister() }
                 else { registerGlobalHotKey() }
@@ -461,14 +618,123 @@ private struct PlugSpotView: View {
             onShortcutChanged: registerGlobalHotKey,
             onBubbleChanged: {
                 bubbleController.updateAppearance(scale: bubbleScale, transparency: bubbleTransparency, positionLocked: bubblePositionLocked)
+            },
+            onResetBubblePosition: { bubbleController.resetPosition() }
+        )
+    }
+
+    private var missingArtworkSheet: some View {
+        let allPlugins = pluginFamilies
+        let allVendors = vendorOptions
+        let managedPlugins = allPlugins.filter { artworkStore.hasPluginImage($0.id) == artworkManagerShowsImages }
+        let managedVendors = allVendors.filter { artworkStore.hasVendorImage($0.name) == artworkManagerShowsImages }
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Manage Images").font(.title2.weight(.semibold))
+                Spacer()
+                Button("Done") { isMissingArtworkPresented = false }
             }
+            Text("Manage plugin and manufacturer images. Images you assign remain available after rescanning plugins.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Image status", selection: $artworkManagerShowsImages) {
+                Text("Without Images").tag(false)
+                Text("With Images").tag(true)
+            }
+            .pickerStyle(.segmented)
+            Text(artworkManagerShowsImages
+                 ? "Images available to replace · \(managedPlugins.count) plugins · \(managedVendors.count) manufacturers"
+                 : "Images to add manually · \(managedPlugins.count) plugins · \(managedVendors.count) manufacturers")
+                .font(.caption.weight(.medium))
+            List {
+                Section("Manufacturers") {
+                    ForEach(managedVendors) { vendor in
+                        HStack {
+                            vendorArtwork(vendor.name, width: 64, height: 42)
+                            Text(vendor.name)
+                            Spacer()
+                            Button(artworkManagerShowsImages ? "Replace Image…" : "Load Image…") { chooseArtwork(vendor: vendor.name) }
+                        }
+                        .task(id: "\(vendor.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
+                            guard let liveVersion else { return }
+                            let candidates = allPlugins
+                                .filter { normalizedText($0.vendor) == normalizedText(vendor.name) }
+                                .flatMap(\.variants)
+                            artworkStore.requestVendorImage(vendor: vendor.name, plugins: candidates, liveVersion: liveVersion)
+                        }
+                    }
+                }
+                Section("Plugins") {
+                    ForEach(managedPlugins) { family in
+                        HStack {
+                            pluginArtwork(family, width: 52, height: 38)
+                                .frame(width: 52, height: 38)
+                            Text(family.name)
+                            Text(family.vendor).foregroundStyle(.secondary)
+                            Spacer()
+                            Button(artworkManagerShowsImages ? "Replace Image…" : "Load Image…") { chooseArtwork(pluginID: family.id) }
+                        }
+                        .task(id: "\(family.id)|\(artworkStore.artworkRevision)") {
+                            guard let liveVersion else { return }
+                            artworkStore.requestPluginImage(for: family.preferredVariant, familyID: family.id, liveVersion: liveVersion)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 700, height: 540)
+        .modifier(BubblePlugSurface())
+    }
+
+    private func chooseArtwork(pluginID: String? = nil, vendor: String? = nil) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            if !artworkStore.setCustomImage(url, pluginID: pluginID, vendor: vendor) {
+                status = "Could not load that image. Choose a supported image file."
+                isError = true
+            }
+        }
+    }
+
+    private func prepareArtworkForCatalog(version: String) {
+        artworkStore.prepare(
+            plugins: catalogFamilies.map { ($0.id, $0.preferredVariant) },
+            liveVersion: version,
+            using: library,
+            cachedOnly: imageStartupMode != "scan",
+            autoCapture: imageStartupMode == "scan"
+        )
+    }
+
+    private func loadAllPluginImages() {
+        guard let liveVersion, !catalogFamilies.isEmpty,
+              !artworkStore.isPreparing, !artworkStore.isCapturingFirstRunImages else { return }
+        imageStartupMode = "scan"
+        let entries = catalogFamilies.map { ($0.id, $0.preferredVariant) }
+        if artworkStore.missingPluginImageCount == catalogFamilies.count {
+            artworkStore.prepare(plugins: entries, liveVersion: liveVersion, force: true, using: library)
+        } else {
+            artworkStore.retryFirstRunImageCapture(plugins: entries, library: library)
+        }
+    }
+
+    private func updateImageProgressPanel() {
+        imageProgressPanel.update(
+            active: artworkStore.isCapturingFirstRunImages || artworkStore.isPreparing,
+            progress: artworkStore.isCapturingFirstRunImages ? artworkStore.captureProgress : artworkStore.preparationProgress,
+            pluginName: artworkStore.isPreparing ? "Preparing plugin images…" : artworkStore.captureCurrentPlugin
         )
     }
 
     @ViewBuilder
     private var pluginResultsView: some View {
         if displayMode == .list {
-                List(filteredFamilies, selection: familySelection) { family in
+                List(filteredFamilies) { family in
                     HStack(spacing: 10) {
                         pluginArtwork(family, width: 54, height: 40)
                         VStack(alignment: .leading, spacing: 3) {
@@ -504,14 +770,18 @@ private struct PlugSpotView: View {
                         .buttonStyle(.plain)
                         .help(favoriteIDs.contains(family.id) ? "Remove from Favorites" : "Add to Favorites")
                     }
-                    .task(id: "\(family.id)|\(liveVersion ?? "")") {
+                    .task(id: "\(family.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
                         guard let liveVersion else { return }
                         artworkStore.requestPluginImage(for: family.preferredVariant, familyID: family.id, liveVersion: liveVersion)
                     }
                     .tag(family.id)
                     .padding(.vertical, 2)
-                    .simultaneousGesture(TapGesture(count: 2).onEnded {
-                        loadPlugin(family.preferredVariant, family: family)
+                    .contentShape(Rectangle())
+                    .gesture(TapGesture(count: 2).exclusively(before: TapGesture(count: 1)).onEnded { result in
+                        switch result {
+                        case .first: loadPlugin(family.preferredVariant, family: family)
+                        case .second: selectAndQueue(family)
+                        }
                     })
                     .contextMenu {
                         Button("Load \(family.name)") {
@@ -616,9 +886,9 @@ private struct PlugSpotView: View {
                 .onEnded { result in
                     switch result {
                     case .first:
-                        selectAndQueue(family)
-                    case .second:
                         loadPlugin(family.preferredVariant, family: family)
+                    case .second:
+                        selectAndQueue(family)
                     }
                 }
         )
@@ -640,7 +910,7 @@ private struct PlugSpotView: View {
                 }
             }
         }
-        .task(id: "\(family.id)|\(liveVersion ?? "")") {
+        .task(id: "\(family.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
             guard let liveVersion else { return }
             artworkStore.requestPluginImage(for: family.preferredVariant, familyID: family.id, liveVersion: liveVersion)
         }
@@ -653,12 +923,7 @@ private struct PlugSpotView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.gradient)
-                    Text(monogram(for: family.name))
-                        .font(.system(size: min(height * 0.46, 28), weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                }
+                BubbleMonogram(initials: monogram(for: family.name), width: width, height: height)
             }
         }
         .frame(width: width, height: height)
@@ -678,11 +943,27 @@ private struct PlugSpotView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.white.opacity(0.86))
                 }
-                Spacer()
-                Button("Clear") { chainQueue.removeAll() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .disabled(isLoadingChain)
+                Spacer(minLength: 4)
+            }
+            HStack(spacing: 8) {
+                Button {
+                    chainQueue.removeAll()
+                    selectedQueuedPluginID = nil
+                    activeChainSetID = nil
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isLoadingChain || chainQueue.isEmpty)
+
+                Button(activeChainSetID == nil ? "Save Set" : "Save Changes") { saveCurrentChainSet() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isLoadingChain || chainQueue.isEmpty)
+
+                Spacer(minLength: 4)
+
                 Button(isLoadingChain ? "Loading…" : "Load Chain") { loadChain() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -692,21 +973,29 @@ private struct PlugSpotView: View {
                 HStack(spacing: 6) {
                     ForEach(Array(chainQueue.enumerated()), id: \.element.id) { index, entry in
                         let family = pluginFamilies.first(where: { $0.id == entry.familyID })
+                        let isSelected = selectedQueuedPluginID == entry.id
                         VStack(alignment: .leading, spacing: 4) {
+                            if let family {
+                                pluginArtwork(family, width: 112, height: 48)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
                             Text(family?.name ?? "Unavailable plugin")
                                 .font(.caption)
                                 .lineLimit(1)
                                 .frame(maxWidth: 112, alignment: .leading)
+                            if let family {
+                                Text(family.variants.first(where: { $0.id == entry.pluginID }).map(channelLabel(for:)) ?? "Unavailable")
+                                    .font(.caption2)
+                                    .foregroundStyle(PlugSpotPalette.cyan)
+                            }
                             HStack(spacing: 5) {
-                                Button { moveQueueItem(at: index, by: -1) } label: {
-                                    Image(systemName: "chevron.left")
-                                }
-                                .disabled(index == 0 || isLoadingChain)
-                                Button { moveQueueItem(at: index, by: 1) } label: {
-                                    Image(systemName: "chevron.right")
-                                }
-                                .disabled(index == chainQueue.count - 1 || isLoadingChain)
-                                Button { chainQueue.remove(at: index) } label: {
+                                Image(systemName: "line.3.horizontal")
+                                    .help("Drag to reorder")
+                                Spacer()
+                                Button {
+                                    chainQueue.remove(at: index)
+                                    if selectedQueuedPluginID == entry.id { selectedQueuedPluginID = nil }
+                                } label: {
                                     Image(systemName: "xmark")
                                 }
                                 .disabled(isLoadingChain)
@@ -716,7 +1005,18 @@ private struct PlugSpotView: View {
                         }
                         .padding(7)
                         .background(PlugSpotPalette.chainTile, in: RoundedRectangle(cornerRadius: 9))
-                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(PlugSpotPalette.edge, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(isSelected ? PlugSpotPalette.cyan : PlugSpotPalette.edge, lineWidth: isSelected ? 2 : 1))
+                        .contentShape(RoundedRectangle(cornerRadius: 9))
+                        .onTapGesture { selectedQueuedPluginID = entry.id }
+                        .onDrag { NSItemProvider(object: entry.id.uuidString as NSString) }
+                        .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
+                            guard !isLoadingChain, let provider = providers.first else { return false }
+                            _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                                guard let text = object as? String, let sourceID = UUID(uuidString: text) else { return }
+                                Task { @MainActor in moveQueueItem(id: sourceID, onto: entry.id) }
+                            }
+                            return true
+                        }
                         .overlay(alignment: .trailing) {
                             if index < chainQueue.count - 1 {
                                 Image(systemName: "arrow.right")
@@ -729,11 +1029,258 @@ private struct PlugSpotView: View {
                 }
                 .padding(.horizontal, 1)
             }
+            if let selectedQueuedPluginID,
+               let selectedIndex = chainQueue.firstIndex(where: { $0.id == selectedQueuedPluginID }),
+               let family = pluginFamilies.first(where: { $0.id == chainQueue[selectedIndex].familyID }),
+               family.variants.count > 1 {
+                HStack {
+                    Text("Selected plugin: \(family.name)")
+                        .font(.caption)
+                        .lineLimit(1)
+                    Spacer()
+                    Picker("Channel", selection: Binding(
+                        get: { chainQueue[selectedIndex].pluginID },
+                        set: { chainQueue[selectedIndex].pluginID = $0 }
+                    )) {
+                        ForEach(family.variants) { variant in
+                            Text(channelLabel(for: variant)).tag(variant.id)
+                        }
+                    }
+                    .frame(width: 180)
+                    .disabled(isLoadingChain)
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(PlugSpotPalette.chainShelf)
         .overlay(alignment: .top) { Rectangle().fill(PlugSpotPalette.iridescence).frame(height: 1).opacity(0.55) }
+    }
+
+    private var chainSetsView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("CHAIN SETS").font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2).foregroundStyle(PlugSpotPalette.cyan)
+                    Text("Save plugin chains for reuse").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            Button {
+                saveCurrentChainSet()
+            } label: {
+                Label(activeChainSetID == nil ? "Save Current Chain" : "Save Chain Changes", systemImage: "square.and.arrow.down")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(chainQueue.isEmpty)
+            .help(chainQueue.isEmpty ? "Add plugins to the chain before saving it" : "Save the current plugin chain as a reusable Chain Set")
+            if !chainQueue.isEmpty {
+                Label("Current chain: \(chainQueue.count) plugins. Reorder or remove them below, then save.", systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if chainSets.isEmpty {
+                emptyState(title: "No Chain Sets Yet", symbol: "point.3.connected.trianglepath.dotted", detail: "Build a chain in the plugin list, then save it here.")
+            } else {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(chainSets) { set in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Button {
+                                    if activeChainSetID == set.id { activeChainSetID = nil }
+                                    else { loadSavedChainSet(set) }
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(set.name).font(.headline).lineLimit(1)
+                                            Text("\(set.plugins.count) \(set.plugins.count == 1 ? "plugin" : "plugins") · Click to load")
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 0)
+                                        Image(systemName: activeChainSetID == set.id ? "chevron.up" : "chevron.down")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                HStack(spacing: 7) {
+                                    Button { exportChainSet(set) } label: {
+                                        Label("Export .adg", systemImage: "square.and.arrow.up")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .help("Export this Chain Set as an Ableton rack preset")
+                                    Button { loadSavedChainSet(set); editingChainSetID = set.id; editingChainSetName = set.name } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    Button(role: .destructive) { deleteChainSet(set) } label: {
+                                        Label("Remove", systemImage: "trash")
+                                    }
+                                    .buttonStyle(.bordered)
+                                    Spacer(minLength: 0)
+                                }
+                                if activeChainSetID == set.id {
+                                    if editingChainSetID == set.id {
+                                        HStack {
+                                            TextField("Chain Set name", text: $editingChainSetName)
+                                                .textFieldStyle(.roundedBorder)
+                                            Button("Save Name") { renameChainSet(set) }
+                                            Button("Cancel") { editingChainSetID = nil }
+                                        }
+                                    }
+                                    ForEach(Array(set.plugins.enumerated()), id: \.offset) { index, plugin in
+                                        HStack(spacing: 8) {
+                                            Text("\(index + 1).").foregroundStyle(.secondary)
+                                            if let family = pluginFamilies.first(where: { $0.id == plugin.familyID }) {
+                                                pluginArtwork(family, width: 54, height: 32)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                                            }
+                                            Text(plugin.name).lineLimit(1)
+                                            Spacer()
+                                            Text(plugin.format).font(.caption2).foregroundStyle(.secondary)
+                                        }
+                                        .font(.caption)
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(activeChainSetID == set.id ? PlugSpotPalette.selectedCard : PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(PlugSpotPalette.edge, lineWidth: 1))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 14)
+        .onAppear(perform: loadChainSets)
+    }
+
+    private func saveCurrentChainSet() {
+        guard let localStore, !chainQueue.isEmpty else { return }
+        let name: String
+        if let existing = chainSets.first(where: { $0.id == activeChainSetID }) {
+            name = existing.name
+        } else {
+            let alert = NSAlert()
+            alert.messageText = "Save Chain Set"
+            alert.informativeText = "Choose a name for this plugin chain."
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Cancel")
+            let field = NSTextField(string: "")
+            field.placeholderString = "e.g. Vocal Chain"
+            field.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
+            alert.accessoryView = field
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let savedPlugins = chainQueue.compactMap { queued -> StoredChainPlugin? in
+            guard let family = pluginFamilies.first(where: { $0.id == queued.familyID }),
+                  let plugin = family.variants.first(where: { $0.id == queued.pluginID }) else { return nil }
+            return StoredChainPlugin(familyID: family.id, pluginID: plugin.id, name: family.name, vendor: family.vendor, format: plugin.format)
+        }
+        do {
+            let set = StoredChainSet(id: activeChainSetID ?? UUID().uuidString, name: name, plugins: savedPlugins)
+            try localStore.saveChainSet(set)
+            activeChainSetID = set.id
+            loadChainSets()
+            status = "Saved Chain Set: \(name)."
+            localStoreError = nil
+        } catch { localStoreError = error.localizedDescription }
+    }
+
+    private func exportChainSet(_ set: StoredChainSet) {
+        guard let liveVersion else {
+            showChainExportError("Connect to Ableton Live and refresh the plug-in library before exporting this Chain Set.")
+            return
+        }
+        do {
+            try AbletonChainExporter.validate(set, liveVersion: liveVersion)
+        } catch {
+            showChainExportError(error.localizedDescription)
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.title = "Export Ableton Rack Preset"
+        panel.nameFieldStringValue = "\(set.name.replacingOccurrences(of: "/", with: "-")).adg"
+        panel.allowedContentTypes = [UTType(filenameExtension: "adg") ?? .data]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        guard let parent = bubbleController.mainWindowForDialogs else {
+            showChainExportError("BubblePlug's window is not ready to present the Save dialog. Reopen BubblePlug and try again.")
+            return
+        }
+
+        // Present Save as a sheet on the expanded panel. A detached modal dialog
+        // from this accessory app/non-activating panel can appear without taking
+        // keyboard focus, which makes the filename field look editable but ignore input.
+        activeExportPanel = panel
+        NSApp.activate(ignoringOtherApps: true)
+        panel.beginSheetModal(for: parent) { response in
+            defer { activeExportPanel = nil }
+            guard response == .OK, let destination = panel.url else { return }
+            do {
+                try AbletonChainExporter.export(set, to: destination, liveVersion: liveVersion)
+                status = "Exported \(set.name) as an Ableton .adg rack. Plug-in presets and private state are not included; Live opens each plug-in with its default state."
+            } catch {
+                status = "Could not export \(set.name): \(error.localizedDescription)"
+                showChainExportError(error.localizedDescription)
+            }
+        }
+    }
+
+    private func showChainExportError(_ detail: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Chain Set Export Failed"
+        alert.informativeText = detail
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func loadChainSets() {
+        do { chainSets = try localStore?.chainSets() ?? []; localStoreError = nil }
+        catch { localStoreError = error.localizedDescription }
+    }
+
+    private func loadSavedChainSet(_ set: StoredChainSet) {
+        activeChainSetID = set.id
+        if let liveVersion {
+            for item in set.plugins {
+                if let family = pluginFamilies.first(where: { $0.id == item.familyID }),
+                   let variant = family.variants.first(where: { $0.id == item.pluginID }) {
+                    artworkStore.requestPluginImage(for: variant, familyID: family.id, liveVersion: liveVersion)
+                }
+            }
+        }
+        let available = set.plugins.filter { pluginID in
+            pluginFamilies.contains(where: { family in family.id == pluginID.familyID && family.variants.contains(where: { $0.id == pluginID.pluginID }) })
+        }
+        chainQueue = available.map { QueuedPlugin(familyID: $0.familyID, pluginID: $0.pluginID) }
+        selectedQueuedPluginID = chainQueue.first?.id
+        if available.count == set.plugins.count {
+            status = "Loaded \(set.name) into the chain builder."
+        } else {
+            status = "Loaded \(available.count) of \(set.plugins.count) plugins. Some are unavailable in Live."
+        }
+    }
+
+    private func renameChainSet(_ set: StoredChainSet) {
+        do { try localStore?.renameChainSet(id: set.id, name: editingChainSetName); editingChainSetID = nil; loadChainSets() }
+        catch { localStoreError = error.localizedDescription }
+    }
+
+    private func deleteChainSet(_ set: StoredChainSet) {
+        do {
+            try localStore?.deleteChainSet(id: set.id)
+            if activeChainSetID == set.id { activeChainSetID = nil; chainQueue.removeAll() }
+            if editingChainSetID == set.id { editingChainSetID = nil }
+            loadChainSets()
+        }
+        catch { localStoreError = error.localizedDescription }
     }
 
     private var isLoadingChain: Bool {
@@ -745,21 +1292,27 @@ private struct PlugSpotView: View {
         let variant = family.preferredVariant
         selectedFamilyID = family.id
         selectedVariantID = variant.id
-        chainQueue.append(QueuedPlugin(familyID: family.id, pluginID: variant.id))
+        let queued = QueuedPlugin(familyID: family.id, pluginID: variant.id)
+        chainQueue.append(queued)
+        selectedQueuedPluginID = queued.id
         status = "Added \(family.name) to the chain."
         isError = false
     }
 
-    private func moveQueueItem(at index: Int, by offset: Int) {
-        let destination = index + offset
-        guard chainQueue.indices.contains(index), chainQueue.indices.contains(destination), !isLoadingChain else { return }
-        let item = chainQueue.remove(at: index)
-        chainQueue.insert(item, at: destination)
+    private func moveQueueItem(id sourceID: UUID, onto targetID: UUID) {
+        guard !isLoadingChain,
+              let source = chainQueue.firstIndex(where: { $0.id == sourceID }),
+              let target = chainQueue.firstIndex(where: { $0.id == targetID }),
+              source != target else { return }
+        let item = chainQueue.remove(at: source)
+        chainQueue.insert(item, at: target)
+        selectedQueuedPluginID = sourceID
     }
 
     private func loadChain() {
         guard !chainQueue.isEmpty, loadingPluginID == nil else { return }
         let queued = chainQueue
+        activeChainSetID = nil
         loadingPluginID = "__plugspot_chain__"
         isError = false
         status = "Loading chain…"
@@ -773,6 +1326,7 @@ private struct PlugSpotView: View {
                 }
                 do {
                     let result = try await library.loadPlugin(id: plugin.id)
+                    artworkStore.captureLivePluginWindowIfNeeded(for: plugin, familyID: family.id)
                     chainQueue.removeAll { $0.id == entry.id }
                     loadedCount += 1
                     status = "Loaded \(family.name) to “\(result.trackName)”."
@@ -796,7 +1350,7 @@ private struct PlugSpotView: View {
             loadLocalState()
             if loadedCount > 0 {
                 await MainActor.run {
-                    bubbleController.show(minimizing: NSApp.keyWindow ?? NSApp.mainWindow)
+                    bubbleController.finishPluginLoad()
                 }
             }
             loadingPluginID = nil
@@ -1014,7 +1568,8 @@ private struct PlugSpotView: View {
                         status = "Connection to Ableton Live restored. Refreshing the plugin library…"
                         isError = false
                         refreshLibrary()
-                    } else if !hasObservedConnection && plugins.isEmpty && !isLoadingLibrary {
+                    } else if !hasObservedConnection && !isLoadingLibrary &&
+                                (plugins.isEmpty || (liveVersion.map { scannerModification(for: $0) } ?? 0) > cachedScannerModification) {
                         refreshLibrary()
                     }
                     hasObservedConnection = true
@@ -1116,7 +1671,7 @@ private struct PlugSpotView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .task(id: "\(option.id)|\(liveVersion ?? "")") {
+                .task(id: "\(option.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
                     guard let liveVersion else { return }
                     let candidates = pluginFamilies
                         .filter { normalizedText($0.vendor) == normalizedText(option.name) }
@@ -1146,7 +1701,7 @@ private struct PlugSpotView: View {
                             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(PlugSpotPalette.iridescence.opacity(0.25), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
-                        .task(id: "\(option.id)|\(liveVersion ?? "")") {
+                        .task(id: "\(option.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
                             guard let liveVersion else { return }
                             let candidates = pluginFamilies
                                 .filter { normalizedText($0.vendor) == normalizedText(option.name) }
@@ -1167,12 +1722,7 @@ private struct PlugSpotView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.16))
-                    Text(monogram(for: vendor))
-                        .font(.system(size: min(height * 0.58, 26), weight: .bold, design: .rounded))
-                        .foregroundStyle(.tint)
-                }
+                BubbleMonogram(initials: monogram(for: vendor), width: width, height: height)
             }
         }
         .frame(width: width, height: height)
@@ -1202,27 +1752,13 @@ private struct PlugSpotView: View {
         case .recent: scopeLabel = "recent"
         case .vendors:
             if let selectedVendorFilter { return "\(filteredFamilies.count) plugins · \(selectedVendorFilter)" }
-            return "\(filteredVendorOptions.count) vendors"
+            return "\(filteredVendorOptions.count) manufacturers"
+        case .chainSets: scopeLabel = "Chain Sets · \(chainSets.count) saved"
         }
         var qualifiers: [String] = []
         if !selectedCategoryFilters.isEmpty { qualifiers.append("\(selectedCategoryFilters.count) active categories") }
         let suffix = qualifiers.isEmpty ? "" : " · " + qualifiers.joined(separator: " · ")
         return "\(filteredFamilies.count) \(scopeLabel)\(suffix)"
-    }
-
-    private var familySelection: Binding<String?> {
-        Binding(
-            get: { selectedFamilyID },
-            set: {
-                guard let id = $0, let family = pluginFamilies.first(where: { $0.id == id }) else {
-                    selectedFamilyID = $0
-                    selectedVariantID = nil
-                    return
-                }
-                selectAndQueue(family)
-                selectedVariantID = nil
-            }
-        )
     }
 
     private func variantSelection(for family: PluginFamily) -> Binding<String> {
@@ -1288,7 +1824,9 @@ private struct PlugSpotView: View {
                 let refreshedPlugins = try await library.plugins()
                 plugins = refreshedPlugins
                 catalogFamilies = PluginFamily.group(refreshedPlugins)
+                prepareArtworkForCatalog(version: detectedLiveVersion)
                 cachedLiveVersion = detectedLiveVersion
+                cachedScannerModification = scannerModification(for: detectedLiveVersion)
                 if let encodedCatalog = try? JSONEncoder().encode(refreshedPlugins) {
                     cachedCatalogJSON = encodedCatalog
                 }
@@ -1336,19 +1874,19 @@ private struct PlugSpotView: View {
 
     @MainActor
     private func configureWindowControls(_ window: NSWindow) {
-        window.title = "BubblePlug"
-        window.backgroundColor = NSColor(PlugSpotPalette.canvas)
-        bubbleController.prepareStartupWindow(window)
-        window.styleMask.remove(.closable)
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
-        guard let minimizeButton = window.standardWindowButton(.miniaturizeButton) else { return }
+        let panel = bubbleController.prepareStartupWindow(window)
+        panel.title = "BubblePlug"
+        panel.backgroundColor = NSColor(PlugSpotPalette.canvas)
+        panel.styleMask.remove(.closable)
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        guard let minimizeButton = panel.standardWindowButton(.miniaturizeButton) else { return }
 
         let target: PlugSpotWindowButtonTarget
-        if let current = windowButtonTarget, current.window === window {
+        if let current = windowButtonTarget, current.window === panel {
             target = current
         } else {
-            target = PlugSpotWindowButtonTarget(window: window) { [weak bubbleController] window in
+            target = PlugSpotWindowButtonTarget(window: panel) { [weak bubbleController] window in
                 bubbleController?.show(minimizing: window)
             }
             windowButtonTarget = target
@@ -1377,6 +1915,7 @@ private struct PlugSpotView: View {
 
     private func loadPlugin(_ plugin: PluginItem, family: PluginFamily) {
         guard loadingPluginID == nil else { return }
+        activeChainSetID = nil
         loadingPluginID = plugin.id
         isError = false
         status = "Loading \(family.name) (\(channelLabel(for: plugin)))…"
@@ -1384,6 +1923,7 @@ private struct PlugSpotView: View {
         Task {
             do {
                 let result = try await library.loadPlugin(id: plugin.id)
+                artworkStore.captureLivePluginWindowIfNeeded(for: plugin, familyID: family.id)
                 do {
                     try localStore?.recordLoadRequest(id: family.id, name: family.name, vendor: family.vendor, format: plugin.format)
                     loadLocalState()
@@ -1393,7 +1933,7 @@ private struct PlugSpotView: View {
                 status = "Load request for \(family.name) sent to “\(result.trackName)”. Check Live."
                 chainQueue.removeAll { $0.pluginID == plugin.id }
                 await MainActor.run {
-                    bubbleController.show(minimizing: NSApp.keyWindow ?? NSApp.mainWindow)
+                    bubbleController.finishPluginLoad()
                 }
             } catch {
                 isError = true
@@ -1441,17 +1981,24 @@ private struct PlugSpotView: View {
                 let families = pluginFamilies
                 var categoryByAbletonIndex: [Int: LocalCategory] = [:]
                 var existingCategories = try localStore?.categories() ?? []
+                var omittedCategories = 0
                 for label in imported.labels where (2...7).contains(label.colorIndex) {
                     if let existing = existingCategories.first(where: { $0.name.caseInsensitiveCompare(label.name) == .orderedSame }) {
                         categoryByAbletonIndex[label.colorIndex] = existing
                         continue
                     }
-                    guard existingCategories.count < 6 else { continue }
+                    guard existingCategories.count < 6 else {
+                        omittedCategories += 1
+                        continue
+                    }
                     let usedIndexes = Set(existingCategories.map(\.colorIndex))
                     let index = usedIndexes.contains(label.colorIndex)
                         ? (2...7).first(where: { !usedIndexes.contains($0) })
                         : label.colorIndex
-                    guard let index else { continue }
+                    guard let index else {
+                        omittedCategories += 1
+                        continue
+                    }
                     let category = LocalCategory(name: label.name, colorIndex: index)
                     try localStore?.saveCategory(category)
                     existingCategories.append(category)
@@ -1482,6 +2029,9 @@ private struct PlugSpotView: View {
                 }
                 loadLocalState()
                 status = "Imported Ableton Collections: \(importedFavorites) favorites and \(importedLabels) category assignments across \(matched) matched plugins."
+                if omittedCategories > 0 {
+                    status += " \(omittedCategories) categories were skipped because all six slots are in use."
+                }
                 isError = false
             } catch {
                 status = error.localizedDescription
@@ -1625,7 +2175,7 @@ private struct PlugSpotView: View {
 private struct QueuedPlugin: Identifiable {
     let id = UUID()
     let familyID: String
-    let pluginID: String
+    var pluginID: String
 }
 
 private struct PlugSpotWindowAccessor: NSViewRepresentable {
@@ -1640,18 +2190,30 @@ private struct PlugSpotWindowAccessor: NSViewRepresentable {
     func updateNSView(_ nsView: PlugSpotWindowObservingView, context: Context) {
         nsView.onWindow = onWindow
         if let window = nsView.window {
-            onWindow(window)
+            nsView.notifyWindowIfNeeded(window)
         }
     }
 }
 
 private final class PlugSpotWindowObservingView: NSView {
     var onWindow: ((NSWindow) -> Void)?
+    private var scheduledWindowID: ObjectIdentifier?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        scheduledWindowID = nil
         if let window {
-            onWindow?(window)
+            notifyWindowIfNeeded(window)
+        }
+    }
+
+    func notifyWindowIfNeeded(_ window: NSWindow) {
+        let windowID = ObjectIdentifier(window)
+        guard scheduledWindowID != windowID else { return }
+        scheduledWindowID = windowID
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, self.window === window else { return }
+            self.onWindow?(window)
         }
     }
 }
@@ -1672,21 +2234,124 @@ private final class PlugSpotWindowButtonTarget: NSObject {
     }
 }
 
+@MainActor
+private final class ImageCaptureProgressPanel {
+    private var panel: NSPanel?
+    private var isActive = false
+    private var activationObserver: NSObjectProtocol?
+
+    init() {
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let controller = self else { return }
+            Task { @MainActor in controller.refreshVisibility() }
+        }
+    }
+
+    deinit {
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        }
+    }
+
+    func update(active: Bool, progress: Double, pluginName: String) {
+        isActive = active
+        guard active else { hide(); return }
+        if panel == nil {
+            let created = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 380, height: 82),
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            created.isOpaque = false
+            created.backgroundColor = .clear
+            created.hasShadow = true
+            created.level = .floating
+            created.hidesOnDeactivate = false
+            created.collectionBehavior = [.fullScreenAuxiliary]
+            panel = created
+        }
+        panel?.contentView = NSHostingView(rootView: ImageCaptureProgressView(progress: progress, pluginName: pluginName))
+        if let screen = NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main,
+           let panel {
+            let visible = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: visible.midX - panel.frame.width / 2, y: visible.minY + 14))
+        }
+        refreshVisibility()
+    }
+
+    func hide() {
+        isActive = false
+        panel?.orderOut(nil)
+    }
+
+    private func refreshVisibility() {
+        guard isActive, let panel else { return }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let bundle = frontmost?.bundleIdentifier ?? ""
+        let name = frontmost?.localizedName?.lowercased() ?? ""
+        if bundle == "com.plugspot.app" || bundle.hasPrefix("com.ableton.live") ||
+            name.contains("ableton live") || name.contains("editorhost") || name.contains("bubbleplugcapture") {
+            panel.orderFrontRegardless()
+        } else {
+            panel.orderOut(nil)
+        }
+    }
+}
+
+private struct ImageCaptureProgressView: View {
+    let progress: Double
+    let pluginName: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Loading plugin images")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("\(Int(progress * 100))%")
+                    .monospacedDigit()
+                    .font(.system(size: 12, weight: .medium))
+            }
+            ProgressView(value: progress)
+                .tint(PlugSpotPalette.cyan)
+            Text(pluginName.isEmpty ? "Preparing…" : pluginName)
+                .lineLimit(1)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 11)
+        .frame(width: 380, height: 82)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.05, green: 0.08, blue: 0.16)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(PlugSpotPalette.cyan.opacity(0.65)))
+    }
+}
+
 private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
-    private weak var mainWindow: NSWindow?
+    private var mainWindow: NSPanel?
+    var mainWindowForDialogs: NSWindow? { mainWindow }
     private weak var trackedScreen: NSScreen?
     private var trackingTimer: Timer?
     private var appActivationObserver: NSObjectProtocol?
     private var mainWindowFocusObserver: NSObjectProtocol?
+    private var mainWindowResizeObserver: NSObjectProtocol?
     private var lastLiveWindowFrame: NSRect?
     private var isMovingProgrammatically = false
+    private var isDraggingBubble = false
     private let sizePreferenceKey = "plugspot.bubble.scale"
     private let transparencyPreferenceKey = "plugspot.bubble.transparency"
     private let positionLockedPreferenceKey = "plugspot.bubble.position.locked"
     private let positionSavedPreferenceKey = "plugspot.bubble.position.saved"
     private let positionXPreferenceKey = "plugspot.bubble.position.x"
     private let positionYPreferenceKey = "plugspot.bubble.position.y"
+    private let windowWidthPreferenceKey = "plugspot.window.width"
+    private let windowHeightPreferenceKey = "plugspot.window.height"
 
     override init() {
         super.init()
@@ -1716,6 +2381,9 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         if let mainWindowFocusObserver {
             NotificationCenter.default.removeObserver(mainWindowFocusObserver)
         }
+        if let mainWindowResizeObserver {
+            NotificationCenter.default.removeObserver(mainWindowResizeObserver)
+        }
     }
 
     private static func isAbleton(_ application: NSRunningApplication?) -> Bool {
@@ -1727,11 +2395,72 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         show(minimizing: mainWindow)
     }
 
-    func prepareStartupWindow(_ window: NSWindow) {
-        guard mainWindow !== window else { return }
-        mainWindow = window
-        observeMainWindowFocus(window)
+    @discardableResult
+    func prepareStartupWindow(_ window: NSWindow) -> NSPanel {
+        if let mainWindow { return mainWindow }
+
+        let sourceFrame = window.frame
+        let expanded = NSPanel(
+            contentRect: sourceFrame,
+            styleMask: [.titled, .resizable, .miniaturizable, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        expanded.title = "BubblePlug"
+        expanded.isFloatingPanel = true
+        expanded.hidesOnDeactivate = false
+        expanded.backgroundColor = NSColor(PlugSpotPalette.canvas)
+        expanded.isReleasedWhenClosed = false
+        expanded.delegate = self
+        expanded.minSize = NSSize(width: 440, height: 520)
+        expanded.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        if #available(macOS 26.0, *) {
+            expanded.collectionBehavior.insert(.canJoinAllApplications)
+        }
+        expanded.level = .normal
+
+        // A SwiftUI hosting view stops drawing reliably when detached from its
+        // scene window. Give the non-activating panel its own root view instead
+        // of moving the scene's NSHostingView between windows.
+        mainWindow = expanded
+        window.contentView = nil
+        expanded.contentView = NSHostingView(rootView: PlugSpotView(bubbleController: self))
         window.orderOut(nil)
+
+        restoreWindowSize(expanded)
+        observeMainWindowFocus(expanded)
+        observeMainWindowSize(expanded)
+        return expanded
+    }
+
+    private func restoreWindowSize(_ window: NSWindow) {
+        let defaults = UserDefaults.standard
+        let width = defaults.double(forKey: windowWidthPreferenceKey)
+        let height = defaults.double(forKey: windowHeightPreferenceKey)
+        guard width >= 440, height >= 520 else { return }
+        let visibleSize = (window.screen ?? NSScreen.main)?.visibleFrame.size
+        let savedSize = NSSize(
+            width: min(CGFloat(width), visibleSize?.width ?? CGFloat(width)),
+            height: min(CGFloat(height), visibleSize?.height ?? CGFloat(height))
+        )
+        window.setContentSize(savedSize)
+    }
+
+    private func observeMainWindowSize(_ window: NSWindow) {
+        if let mainWindowResizeObserver {
+            NotificationCenter.default.removeObserver(mainWindowResizeObserver)
+        }
+        mainWindowResizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { [weak self, weak window] _ in
+            guard let self, let window, self.mainWindow === window, window.isVisible else { return }
+            let size = window.contentRect(forFrameRect: window.frame).size
+            let defaults = UserDefaults.standard
+            defaults.set(Double(size.width), forKey: self.windowWidthPreferenceKey)
+            defaults.set(Double(size.height), forKey: self.windowHeightPreferenceKey)
+        }
     }
 
     private func observeMainWindowFocus(_ window: NSWindow) {
@@ -1746,7 +2475,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
             guard let self, let window, self.mainWindow === window else { return }
             // A settings sheet or another BubblePlug-owned window can become
             // key without the user leaving BubblePlug.
-            if NSApp.isActive, let keyWindow = NSApp.keyWindow, keyWindow !== window {
+            if let keyWindow = NSApp.keyWindow, keyWindow !== window {
                 return
             }
             if Self.isAbleton(NSWorkspace.shared.frontmostApplication) {
@@ -1763,6 +2492,8 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         if mainWindow?.isVisible == true {
             mainWindow?.orderOut(nil)
         }
+        panel?.level = .normal
+        mainWindow?.level = .normal
         trackingTimer?.invalidate()
         trackingTimer = nil
     }
@@ -1774,8 +2505,8 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         guard let panel else { return }
         let size = 58 * CGFloat(scale)
         panel.alphaValue = CGFloat(max(0, min(100, 100 - transparency)) / 100)
-        panel.isMovableByWindowBackground = !positionLocked
-        panel.contentView = NSHostingView(rootView: bubbleView(size: size))
+        panel.isMovableByWindowBackground = false
+        panel.contentView = bubbleView(size: size)
         var frame = panel.frame
         frame.size = NSSize(width: size, height: size)
         movePanel(to: frame)
@@ -1783,26 +2514,45 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     }
 
     func show(minimizing window: NSWindow?) {
-        guard let window else { return }
-        mainWindow = window
+        guard let window, let expanded = window as? NSPanel else { return }
+        mainWindow = expanded
         let scale = configuredScale
         let size = NSSize(width: 58 * scale, height: 58 * scale)
         let bubble = panel ?? makePanel(size: size)
         panel = bubble
         bubble.alphaValue = CGFloat(max(0, min(100, 100 - configuredTransparency)) / 100)
-        bubble.level = .normal
-        bubble.isFloatingPanel = false
-        bubble.isMovableByWindowBackground = !isPositionLocked
-        bubble.collectionBehavior = [.fullScreenAuxiliary]
+        let abletonIsFrontmost = Self.isAbleton(NSWorkspace.shared.frontmostApplication)
+        // Full-screen Live can cover floating windows. This panel may use the
+        // screen-saver level only while Live is frontmost; other-app activation
+        // orders both BubblePlug panels out and restores their normal levels.
+        bubble.level = abletonIsFrontmost ? .screenSaver : .normal
+        bubble.isFloatingPanel = abletonIsFrontmost
+        bubble.isMovableByWindowBackground = false
+        bubble.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let fallbackScreen = window.screen ?? NSScreen.main
         if let fallbackScreen {
             trackedScreen = fallbackScreen
             movePanel(to: bubbleFrame(size: size, on: fallbackScreen, near: window.frame))
         }
-        bubble.orderFront(nil)
+        if abletonIsFrontmost {
+            bubble.orderFrontRegardless()
+        } else {
+            bubble.orderFront(nil)
+        }
         window.orderOut(nil)
         followLiveWindow()
         startTracking()
+    }
+
+    func finishPluginLoad() {
+        guard let mainWindow else { return }
+        show(minimizing: mainWindow)
+        // Return focus to Live without explicitly raising its main window
+        // above the plugin editor that Live just opened.
+        if NSApp.isActive {
+            NSWorkspace.shared.runningApplications.first(where: { Self.isAbleton($0) })?
+                .activate(options: [])
+        }
     }
 
     func showBubble() {
@@ -1818,27 +2568,23 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         panel.isFloatingPanel = false
         panel.level = .normal
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = !isPositionLocked
+        panel.isMovableByWindowBackground = false
         panel.delegate = self
-        panel.contentView = NSHostingView(rootView: bubbleView(size: size.width))
+        panel.contentView = bubbleView(size: size.width)
         return panel
     }
 
     func showMainWindow() {
-        guard let mainWindow else { return }
+        guard mainWindow != nil else { return }
         if panel?.isVisible == true {
             restoreMainWindow()
             return
         }
-        mainWindow.collectionBehavior.insert(.moveToActiveSpace)
-        NSApp.activate(ignoringOtherApps: true)
-        if mainWindow.isMiniaturized { mainWindow.deminiaturize(nil) }
-        mainWindow.orderFrontRegardless()
-        mainWindow.makeKeyAndOrderFront(nil)
+        restoreMainWindow()
     }
 
     private func restoreMainWindow() {
@@ -1846,7 +2592,10 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         trackingTimer = nil
         panel?.orderOut(nil)
         guard let mainWindow else { return }
-        mainWindow.collectionBehavior.insert(.moveToActiveSpace)
+        if let placement = LiveWindowLocator.frontmostVisibleWindow() {
+            trackedScreen = placement.screen
+            lastLiveWindowFrame = placement.frame
+        }
         if let screen = trackedScreen {
             let visibleFrame = screen.visibleFrame
             let frame = mainWindow.frame
@@ -1855,7 +2604,8 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
                 y: visibleFrame.midY - frame.height / 2
             ))
         }
-        NSApp.activate(ignoringOtherApps: true)
+        mainWindow.level = Self.isAbleton(NSWorkspace.shared.frontmostApplication) ? .screenSaver : .normal
+        mainWindow.isFloatingPanel = true
         if mainWindow.isMiniaturized { mainWindow.deminiaturize(nil) }
         mainWindow.orderFrontRegardless()
         mainWindow.makeKeyAndOrderFront(nil)
@@ -1885,20 +2635,38 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         UserDefaults.standard.bool(forKey: positionLockedPreferenceKey)
     }
 
-    private func bubbleView(size: CGFloat) -> PlugSpotBubbleView {
-        PlugSpotBubbleView(
-            size: size,
-            isPositionLocked: isPositionLocked,
-            onActivate: { [weak self] in self?.restoreMainWindow() },
-            onMove: { [weak self] delta in self?.moveBubble(by: delta) }
-        )
+    private func bubbleView(size: CGFloat) -> NSView {
+        let view = PlugSpotBubbleControlView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        view.toolTip = "Open BubblePlug"
+        view.isPositionLocked = isPositionLocked
+        view.onActivate = { [weak self] in self?.restoreMainWindow() }
+        view.onDrag = { [weak self] origin in self?.moveBubble(to: origin) }
+        view.onDragStateChanged = { [weak self] isDragging in self?.isDraggingBubble = isDragging }
+        return view
     }
 
-    private func moveBubble(by delta: CGSize) {
+    private func moveBubble(to origin: NSPoint) {
         guard !isPositionLocked, let panel, let screen = trackedScreen else { return }
-        let newOrigin = NSPoint(x: panel.frame.minX + delta.width, y: panel.frame.minY - delta.height)
-        let frame = clampedFrame(origin: newOrigin, size: panel.frame.size, on: screen)
+        let frame = clampedFrame(origin: origin, size: panel.frame.size, on: screen)
         panel.setFrameOrigin(frame.origin)
+        if let liveFrame = lastLiveWindowFrame {
+            let defaults = UserDefaults.standard
+            defaults.set(frame.minX - liveFrame.minX, forKey: positionXPreferenceKey)
+            defaults.set(frame.minY - liveFrame.minY, forKey: positionYPreferenceKey)
+            defaults.set(true, forKey: positionSavedPreferenceKey)
+        }
+    }
+
+    func resetPosition() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: positionSavedPreferenceKey)
+        defaults.removeObject(forKey: positionXPreferenceKey)
+        defaults.removeObject(forKey: positionYPreferenceKey)
+        if let panel, let placement = LiveWindowLocator.frontmostVisibleWindow() {
+            trackedScreen = placement.screen
+            lastLiveWindowFrame = placement.frame
+            movePanel(to: bubbleFrame(size: panel.frame.size, on: placement.screen, near: placement.frame))
+        }
     }
 
     private func startTracking() {
@@ -1911,7 +2679,25 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     }
 
     private func followLiveWindow() {
-        guard let placement = LiveWindowLocator.frontmostVisibleWindow() else { return }
+        if isDraggingBubble { return }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        if Self.isAbleton(frontmost), let panel {
+            panel.level = .screenSaver
+            panel.isFloatingPanel = true
+            if !panel.isVisible { panel.orderFrontRegardless() }
+        } else if frontmost?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            hideBubbleForOtherApplication()
+            return
+        }
+        guard let placement = LiveWindowLocator.frontmostVisibleWindow() else {
+            panel?.orderOut(nil)
+            mainWindow?.orderOut(nil)
+            panel?.level = .normal
+            mainWindow?.level = .normal
+            trackingTimer?.invalidate()
+            trackingTimer = nil
+            return
+        }
         trackedScreen = placement.screen
         lastLiveWindowFrame = placement.frame
         guard let panel else { return }
@@ -1938,7 +2724,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
                 y: liveWindow.minY + defaults.double(forKey: positionYPreferenceKey)
             )
         } else {
-            preferredOrigin = NSPoint(x: liveWindow.minX + margin, y: liveWindow.maxY - size.height - margin)
+            preferredOrigin = NSPoint(x: liveWindow.minX + margin, y: liveWindow.minY + margin)
         }
         return clampedFrame(origin: preferredOrigin, size: size, on: screen)
     }
@@ -1954,40 +2740,51 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     }
 }
 
-private struct PlugSpotBubbleView: View {
-    let size: CGFloat
-    let isPositionLocked: Bool
-    let onActivate: () -> Void
-    let onMove: (CGSize) -> Void
-    @State private var previousTranslation = CGSize.zero
-    @State private var dragged = false
+private final class PlugSpotBubbleControlView: NSView {
+    var isPositionLocked = false
+    var onActivate: (() -> Void)?
+    var onDrag: ((NSPoint) -> Void)?
+    var onDragStateChanged: ((Bool) -> Void)?
+    private var mouseDownLocation: NSPoint?
+    private var windowOriginAtMouseDown: NSPoint?
+    private var didDrag = false
 
-    var body: some View {
-        Button {
-            if !dragged { onActivate() }
-            dragged = false
-            previousTranslation = .zero
-        } label: {
-            PlugSpotAudioMark(size: size)
+    override var acceptsFirstResponder: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        BubblePlugArtwork.logo?.draw(in: bounds)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = NSEvent.mouseLocation
+        windowOriginAtMouseDown = window?.frame.origin
+        didDrag = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !isPositionLocked,
+              let mouseDownLocation,
+              let windowOriginAtMouseDown else { return }
+        let current = NSEvent.mouseLocation
+        let dx = current.x - mouseDownLocation.x
+        let dy = current.y - mouseDownLocation.y
+        guard didDrag || hypot(dx, dy) >= 4 else { return }
+        if !didDrag {
+            didDrag = true
+            onDragStateChanged?(true)
         }
-        .buttonStyle(.plain)
-        .help("Open BubblePlug")
-        .frame(width: size, height: size)
-        .simultaneousGesture(DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                guard !isPositionLocked else { return }
-                dragged = true
-                let delta = CGSize(
-                    width: value.translation.width - previousTranslation.width,
-                    height: value.translation.height - previousTranslation.height
-                )
-                previousTranslation = value.translation
-                onMove(delta)
-            }
-            .onEnded { _ in
-                previousTranslation = .zero
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { dragged = false }
-            })
+        onDrag?(NSPoint(x: windowOriginAtMouseDown.x + dx, y: windowOriginAtMouseDown.y + dy))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        let shouldActivate = !didDrag
+        mouseDownLocation = nil
+        windowOriginAtMouseDown = nil
+        didDrag = false
+        onDragStateChanged?(false)
+        if shouldActivate { onActivate?() }
     }
 }
 
@@ -2078,6 +2875,7 @@ private enum PluginListScope: String, CaseIterable, Identifiable {
     case favorites
     case recent
     case vendors
+    case chainSets
 
     var id: String { rawValue }
 
@@ -2086,7 +2884,8 @@ private enum PluginListScope: String, CaseIterable, Identifiable {
         case .all: return "All"
         case .favorites: return "Favorites"
         case .recent: return "Recent"
-        case .vendors: return "Vendors"
+        case .vendors: return "Manufacturers"
+        case .chainSets: return "Chain Sets"
         }
     }
 }
@@ -2112,6 +2911,7 @@ private struct CategoryManagerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var drafts: [CategoryDraft]
     @State private var validationMessage: String?
+    @State private var activeColorPickerID: String?
     let onSave: ([LocalCategory]) -> Void
 
     init(categories: [LocalCategory], onSave: @escaping ([LocalCategory]) -> Void) {
@@ -2135,30 +2935,50 @@ private struct CategoryManagerView: View {
                             .frame(width: 12, height: 12)
                         TextField("Category name", text: $category.name)
                             .textFieldStyle(.roundedBorder)
-                        Picker(selection: $category.colorIndex) {
-                            ForEach(availableColors(for: category.id), id: \.self) { index in
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(collectionColor(index))
-                                    .frame(width: 16, height: 16)
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .strokeBorder(Color.primary.opacity(0.22), lineWidth: 1)
-                                    }
-                                    .tag(index)
-                                    .accessibilityLabel(Text("Color \(index)"))
-                            }
+                        Button {
+                            activeColorPickerID = activeColorPickerID == category.id ? nil : category.id
                         } label: {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(collectionColor(category.colorIndex))
-                                .frame(width: 16, height: 16)
+                                .frame(width: 26, height: 26)
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 3)
                                         .strokeBorder(Color.primary.opacity(0.22), lineWidth: 1)
                                 }
-                                .accessibilityLabel("Category color")
                         }
-                        .labelsHidden()
-                        .frame(width: 38)
+                        .buttonStyle(.plain)
+                        .popover(isPresented: Binding(
+                            get: { activeColorPickerID == category.id },
+                            set: { if !$0 { activeColorPickerID = nil } }
+                        ), arrowEdge: .bottom) {
+                            HStack(spacing: 9) {
+                                ForEach(availableColors(for: category.id), id: \.self) { index in
+                                    Button {
+                                        category.colorIndex = index
+                                        activeColorPickerID = nil
+                                    } label: {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(collectionColor(index))
+                                            .frame(width: 30, height: 30)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1)
+                                                if category.colorIndex == index {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .bold))
+                                                        .foregroundStyle(.white)
+                                                        .shadow(color: .black.opacity(0.7), radius: 2)
+                                                }
+                                            }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Select collection color")
+                                    .accessibilityLabel("Select collection color")
+                                }
+                            }
+                            .padding(12)
+                            .modifier(BubblePlugSurface())
+                        }
                         .help("Choose category color")
                         Button(role: .destructive) {
                             drafts.removeAll { $0.id == category.id }
@@ -2257,7 +3077,7 @@ private struct PluginFamily: Identifiable {
 
     var subtitle: String {
         if variants.count == 1 { return vendor }
-        return "\(vendor) · \(variants.count) variantes de canal"
+        return "\(vendor) · \(variants.count) channel variants"
     }
 
     static func group(_ plugins: [PluginItem]) -> [PluginFamily] {
