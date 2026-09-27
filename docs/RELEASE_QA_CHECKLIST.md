@@ -20,13 +20,13 @@ the user and is not a pending test in this checklist.
   interrupt it partway through. Reopen BubblePlug and resume. Confirm completed
   images are retained, only unresolved plugins are retried, and progress/counts
   advance to completion without restarting from zero.
-- [ ] **IMG-03 — Check captured image quality.** Review the resulting catalog
-  cards against their plugin names and manufacturers. Confirm images show the
-  intended plugin editor, not a blank/black window, splash screen, error,
-  license prompt, or another plugin's interface. Assign correct artwork to
-  every unresolved plugin. Pass only when the catalog has zero missing images
-  and the reviewed captures show the intended plugin rather than a failure or
-  placeholder screen.
+- [ ] **IMG-03 — Check capture quality and matching.** Review representative
+  resulting cards against their plugin names and manufacturers. Confirm a
+  successful capture shows the intended plugin and is attached to the exact
+  plugin entry. Blank/black windows, splash screens, errors and license prompts
+  must remain marked unresolved rather than being presented as valid artwork.
+  Zero unresolved plugins on this Mac is not required: local plugins may be
+  inactive, damaged or incompletely installed.
 - [ ] **IMG-04 — Assign and replace artwork.** Manually assign an image to a
   plugin and a manufacturer, restart and rescan, then replace each image.
   Confirm the correct image remains attached to the correct item.

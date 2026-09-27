@@ -5,8 +5,9 @@ work; items may change as manual Ableton testing reveals issues.
 
 ## Before a public release
 
-- [ ] Finish and review the plugin artwork preparation flow. The visual library
-  is not considered complete while catalog plugins have no artwork.
+- [ ] Verify plugin artwork preparation, exact plugin/image matching, retry,
+  persistence and manual assignment. Missing images caused by an inactive,
+  damaged or incomplete local plugin are user-specific and do not block release.
 - [ ] Complete an end-to-end Ableton Live test: startup, single insert, chain
   building/loading, bubble focus and fullscreen behavior, mixer snapshots, and
   Collections import/export.

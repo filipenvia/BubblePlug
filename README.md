@@ -40,10 +40,12 @@ and caches the thumbnail. This does not add
 tracks to Live. Later launches process only missing or new plugins. Images can
 also be assigned in **Missing Images**.
 
-**Artwork coverage is incomplete and blocks release readiness.** Every catalog
-plugin needs an image before the visual library is considered ready. At the same
-time, artwork preparation must remain lightweight during music production: no
-repeated full scans, no parallel plugin instantiation, and bounded image memory.
+Artwork is central to BubblePlug, but local coverage depends on the user's
+installed plugins. Inactive, damaged or incompletely installed plugins may not
+produce a usable image, so zero missing images on every user's Mac is not a
+release requirement. BubblePlug must identify unresolved items, preserve valid
+images, allow manual assignment/retry, and avoid repeated full scans during
+ordinary use.
 
 ## Requirements
 

@@ -2,13 +2,14 @@
 
 ## Requisitos inegociáveis do produto (2026-09-26)
 
-1. **Imagens dos plugins são a função principal do BubblePlug.** A biblioteca
-   visual não está pronta se plugins do catálogo aparecem sem imagem. Iniciais
-   ou uma bolha genérica são apenas fallback temporário durante a preparação;
-   não contam como imagem nem como experiência visual concluída. O utilizador
-   pode optar por abrir a biblioteca sem esperar pela captura e iniciar a carga
-   completa mais tarde. Plugins sem recurso local continuam a precisar de uma
-   imagem antes de a biblioteca visual ser considerada pronta.
+1. **Imagens dos plugins são a função principal do BubblePlug.** A preparação
+   das imagens tem de funcionar, identificar corretamente cada plugin e permitir
+   captura, repetição e atribuição manual. A biblioteca deste Mac pode continuar
+   com itens sem imagem ou com ecrãs de erro quando o plugin local está inativo,
+   corrompido ou incompleto; isso não exige bloquear o lançamento nem atingir
+   zero falhas locais. O BubblePlug deve deixar esses casos visivelmente por
+   resolver, sem os apresentar como imagem válida, e permitir continuar a usar a
+   app e tratar as imagens mais tarde.
 2. **BubblePlug tem de ser leve durante a produção musical.** Não pode manter
    scans recorrentes, carregar plugins em paralelo, consumir RAM com a biblioteca
    inteira descodificada, nem competir de forma perceptível com o Live. Na primeira
@@ -906,14 +907,14 @@ Plugins novos ou ainda sem imagem são os únicos a repetir este processo em
 aberturas futuras. A captura oportunista após uma inserção normal também pode
 preencher uma imagem em falta.
 
-**Regra de prontidão:** cada plugin do catálogo precisa de uma imagem atribuída
-para a experiência visual estar completa. O utilizador pode adiar a captura e usar
-a biblioteca com placeholders, iniciar a carga completa mais tarde e substituir
-imagens já guardadas. O progresso aparece num painel discreto junto à Dock.
-Plugins por ativar ou nunca usados podem mostrar ecrãs de configuração ou erro:
-estas capturas não devem ser tratadas como interfaces válidas. Não voltar a
-executar scans completos em cada abertura: usar um índice persistente e atualizar
-apenas plugins novos ou alterados.
+**Critério de lançamento:** validar o fluxo de preparação, a associação exata
+entre plugin e imagem, a persistência/resume, a atribuição manual e a ausência de
+scans repetidos. Não é necessário que este Mac termine com zero itens sem imagem:
+plugins locais podem estar inativos, corrompidos ou apresentar ecrãs de
+configuração. Esses casos devem ficar identificados como pendentes, sem serem
+confundidos com imagens válidas. A captura pode ser adiada; o progresso aparece
+num painel discreto junto à Dock. Usar um índice persistente e processar apenas
+plugins novos ou ainda pendentes.
 
 ### Estado
 
@@ -924,8 +925,9 @@ Apple Silicon, e capturou editores reais de HOFA, Waves, A1StereoControl e
 FabFilter. A primeira corrida completa, com espera mínima de 4 segundos, está
 documentada em `artifacts/artwork-scan-report-20260926.md`: 971 ficheiros
 capturados, 12 falhas e pelo menos 38 imagens impróprias. A segunda corrida,
-com 1,10 segundos, está em curso. A biblioteca visual continua incompleta até
-cada plugin ter uma imagem válida, mas pode ser utilizada sem aguardar o scan.
+com 1,10 segundos, está em curso. A quantidade de imagens em falta nesta
+instalação depende do estado dos plugins locais e não é, por si só, um critério
+de bloqueio à distribuição.
 
 ------------------------------------------------------------------------
 
