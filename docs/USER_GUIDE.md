@@ -56,7 +56,7 @@ Live must be open and connected for insertion and mixer operations.
 
 Chain Sets can be saved locally, opened, edited, renamed and removed. Supported
 chains can be exported as Ableton `.adg` racks. The generated rack formats have
-not yet completed end-to-end compatibility testing in Live. MIDI-effect racks,
+been confirmed working in Live for supported chain types. MIDI-effect racks,
 multiple serial instruments and private plugin preset/state are not supported.
 
 ## Mixer and recovery snapshots

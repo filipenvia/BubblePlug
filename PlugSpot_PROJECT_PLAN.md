@@ -64,7 +64,7 @@ validados apenas porque compilam.
 ### Prioridades restantes
 
 1. **Amanhã (2026-09-27) — partilha comunitária de imagens via GitHub:** desenhar e implementar a opção opt-in no primeiro arranque, comparar IDs exatos/versões dos plugins com um índice remoto compacto, descarregar imagens já contribuídas e deixar a captura local para os plugins sem imagem. Definir formato/versionamento do índice, limites de tamanho/cache e fluxo explícito de revisão e consentimento antes de qualquer contribuição. Confirmar condições de redistribuição das imagens e desenhar proteção contra associações incorretas. O BP deve continuar funcional offline com o catálogo local.
-2. **Concluir e medir a captura por host VST3 incluído no BP:** o helper baseado no SDK oficial da Steinberg já abre o editor da classe com nome exato, captura e termina fora do Live, incluindo classes em shells. Confirmar taxa de imagens corretas e tempo total no catálogo, tratar plugins sem editor próprio e casos que não desenham a janela na primeira tentativa. O helper não deve processar áudio nem ficar residente durante produção. A captura por track temporária do Live deixou de ser usada na preparação inicial.
+2. **Concluir e rever a captura por host VST3 incluído no BP:** o helper baseado no SDK oficial da Steinberg já abre o editor da classe com nome exato, captura e termina fora do Live, incluindo classes em shells. O estudo de duração e desempenho já foi feito; falta rever a cobertura e a correspondência visual, corrigir imagens vazias/incorretas e atribuir manualmente imagens onde a captura não produz um editor válido. O helper não deve processar áudio nem ficar residente durante produção. A captura por track temporária do Live deixou de ser usada na preparação inicial.
 3. **Teste integral manual no Live:** verificar inserção simples e chains;
    biblioteca e filtros; bolha, foco, atalho e lifecycle; mixer e snapshots;
    import/export de Collections com backup e recuperação. O utilizador ainda
@@ -75,10 +75,10 @@ validados apenas porque compilam.
 5. **Acabamento da biblioteca:** avaliar agrupamento de variantes e classificar
    VST2/VST3/CLAP/AU/Component numa fase posterior; a V1 continua VST3. O limite
    de seis categorias locais está decidido e implementado.
-6. **Chain Sets próprios:** secção persistente e exportação `.adg` implementadas
-   no código; falta validar os racks gerados no Ableton Live.
-7. **Medições reais:** recolher CPU, memória e latência no Mac Intel de
-   referência depois de fechar funcionalidades.
+6. **Chain Sets próprios:** secção persistente e exportação `.adg` implementadas;
+   o utilizador confirmou que a exportação dos tipos suportados funciona no Live.
+7. **Medições reais:** concluídas para arranque, CPU, memória, captura de imagens
+   e utilização prolongada no Ableton; não são um bloqueio pendente.
 8. **Compatibilidade e distribuição:** o build agora cria slices x86_64 e
    arm64 e os junta num Universal; falta executar o slice arm64 num Mac Apple
    Silicon e recolher feedback voluntário. Criar um instalador de utilizador
@@ -947,7 +947,7 @@ Na fila, um cartão pode ser seleccionado para alterar a variante de canal
 (por exemplo Mono/Stereo) antes de carregar; os cartões podem ser arrastados
 para mudar a ordem.
 
-**Implementado no código (ainda sem validação final no Live):** botão `Export
+**Implementado e confirmado pelo utilizador no Live para tipos suportados:** botão `Export
 .adg` em cada Chain Set. Gera um rack comprimido Ableton a partir dos IDs VST3
 exatos; os plugins ficam em série na mesma chain e são instanciados no estado
 predefinido. São aceites cadeias só de efeitos de áudio ou um instrumento no
@@ -968,9 +968,8 @@ formato contém uma árvore real de dispositivos e pode conter estado de plugins
 uma lista de IDs de plugins, por si só, não constitui um preset `.adg` válido.
 O exportador usa um template Audio Effect Rack do Live e um template Instrument
 Rack de código aberto; limpa o estado do preset e preenche os IDs VST3 e a ordem
-dos dispositivos. Não inclui estado/preset privado. O ficheiro gerado tem de ser
-aberto/arrastado para o Live para validar a serialização e a inicialização dos
-plugins antes de declarar compatibilidade confirmada.
+dos dispositivos. Não inclui estado/preset privado. O utilizador confirmou que
+os tipos suportados são exportados e carregados corretamente no Live.
 
 Fluxo pretendido:
 
@@ -1690,12 +1689,11 @@ O benchmark sintético do adaptador, registado em P5.8, mediu 1.373 entradas em
 17 ms / 1,18 MiB e 8.000 entradas em 98 ms / 6,54 MiB (memória Python medida
 com `tracemalloc`, não a memória total do PlugSpot).
 
-**Medição runtime pendente:** no momento da inspeção não havia processo PlugSpot
-ou Live em execução (`ps`), portanto não foi possível recolher CPU/RSS em idle,
-durante pesquisa ou com catálogo real. O build confirma compilação, não fluidez
-nem consumo real SwiftUI. Repetir em runtime no Mac Intel quando Live e a app
-estiverem abertos e o catálogo carregado; recolher baseline idle e durante
-pesquisa/scroll com Instruments ou `sample`/`ps`.
+**Nota histórica:** no momento desta inspeção não havia processo PlugSpot ou
+Live em execução (`ps`), pelo que não foi possível recolher CPU/RSS nesse
+ensaio. Foram feitas medições reais posteriores de arranque, CPU, memória,
+captura de imagens e utilização prolongada no Ableton; esses testes estão
+concluídos e não são um bloqueio atual.
 
 ### P5.10 --- Histórico: validação de segurança de plugins removida
 
@@ -1911,17 +1909,19 @@ está implementada no código, com limites de tipo/ordem documentados na Secçã
 | Carga simples | Utilizador confirmou FabFilter Pro-Q 4 numa track de áudio | Repetição, track MIDI, Return, Master e plugins adicionais |
 | Chain temporária | Implementada no código | Ordem, primeiro erro e vários loads em Live |
 | Chain Sets locais | Implementados no código | Guardar, reabrir, renomear, remover e verificar persistência entre sessões |
-| Export Chain Set `.adg` | Implementado no código | Gerar racks para FX e instrumento+FX; abrir ficheiros em Live e validar ordem/estado |
+| Export Chain Set `.adg` | Utilizador confirmou exportação e funcionamento no Live para tipos suportados | Sem teste pendente para o âmbito suportado |
 | Categorias e export JSON | Implementadas no código | Merge/reimport e round-trip de todas as categorias/dados |
 | Export Collections Live | Preflight real feito | Um ciclo completo com backup, rollback e reabertura |
 | Bolha/lifecycle | Código implementado | Spaces, fullscreen, foco, arrasto, fecho normal e crash |
 | Mixer/snapshot | Código implementado; build passou | Listeners, debounce, snapshot legível e crash/restart num Set real |
 | Recuperação offline | Browser de snapshots implementado | Abrir arquivo real quando Live está fechado/terminou abruptamente |
-| Performance | Benchmark sintético do catálogo | CPU/RAM/latência reais no Mac Intel; Apple Silicon |
+| Performance | Medições reais de arranque, CPU, memória, captura e utilização prolongada concluídas | Nenhum teste de desempenho pendente nesta fase |
 | Empacotamento | Builds x86_64, arm64 e Universal compilados; arm64 sem teste de hardware | Instalador, licença, signing/notarization e feedback runtime Apple Silicon |
 
-Apenas a carga Pro-Q 4 está confirmada directamente pelo utilizador. Os restantes
-itens são estados de implementação, não resultados de validação manual.
+A carga Pro-Q 4 e a exportação `.adg` para tipos suportados foram confirmadas
+directamente pelo utilizador. As verificações ainda abertas estão detalhadas em
+`docs/RELEASE_QA_CHECKLIST.md`; a implementação por si só não conta como
+validação manual.
 
 ------------------------------------------------------------------------
 

@@ -101,10 +101,12 @@ inspect existing mixer snapshots. They are stored in
 
 ## Known gaps before a release
 
-- Verify mixer change listeners, snapshot writes and offline recovery with real
-  Live Sets, including a Live crash/restart.
-- Verify bubble behavior, keyboard focus, and Live lifecycle on the reference
-  Mac; gather the real CPU/RAM measurements reserved for the GitHub report.
+- Complete the pending manual checks for artwork capture, startup, bubble/Spaces,
+  Mixer snapshots, plugin/chain loading, and Collections import/export. See the
+  [release QA checklist](docs/RELEASE_QA_CHECKLIST.md) for steps and pass
+  criteria. Startup, CPU, memory, image-capture timing and extended-use
+  measurements have already been completed; image coverage and correctness
+  still need review.
 - Generalize VST2/VST3/CLAP/AU classification and plugin-family variant
   grouping; the current catalog is VST3-only and grouping is provisional.
 - The local category limit is six, matching Ableton's available Collection
@@ -115,13 +117,13 @@ inspect existing mixer snapshots. They are stored in
   can be edited and saved again. Chain Sets can also be exported as Ableton
   `.adg` racks. Export currently supports serial audio-effect chains and an
   instrument followed by audio effects. MIDI-effect racks, multiple serial
-  instruments, and private plugin preset/state are not supported. The generated
-  files still need an end-to-end load check in Live before compatibility is
-  considered verified.
+  instruments, and private plugin preset/state are not supported. The user has
+  confirmed that `.adg` export works in Live for supported chain types.
 - Verify the destructive Ableton Collections export end to end.
 - Run the Universal app's arm64 slice on Apple Silicon hardware and collect
-  volunteer feedback; choose a license and finish signing, notarization, and
-  installer packaging.
+  volunteer feedback; choose a project license and finish installer packaging
+  and unsigned-distribution instructions. Apple signing and notarization are
+  not planned for the initial distribution.
 
 ## Apple Silicon testers wanted
 

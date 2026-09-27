@@ -10,8 +10,6 @@ work; items may change as manual Ableton testing reveals issues.
 - [ ] Complete an end-to-end Ableton Live test: startup, single insert, chain
   building/loading, bubble focus and fullscreen behavior, mixer snapshots, and
   Collections import/export.
-- [ ] Verify exported Chain Set `.adg` racks in Live, including supported and
-  unsupported chain shapes.
 - [ ] Validate installation, upgrade, reinstall and uninstall on a clean macOS
   account, including custom Ableton User Library locations.
 - [ ] Run the Universal build on Apple Silicon hardware and publish volunteer
@@ -42,6 +40,11 @@ work; items may change as manual Ableton testing reveals issues.
   checksums to GitHub Releases.
 - [ ] Gather compatibility reports across macOS versions, Ableton Live versions
   and Apple Silicon models.
+
+## Confirmed
+
+- [x] Chain Set `.adg` export works in Ableton Live for the supported chain
+  types, confirmed by the user.
 
 ## Not currently planned for the first release
 
