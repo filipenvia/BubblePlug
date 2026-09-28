@@ -10,6 +10,14 @@ Performance measurements are tracked separately and have already been
 completed. Ableton `.adg` export for supported Chain Set types is confirmed by
 the user and is not a pending test in this checklist.
 
+## Automated checks completed remotely
+
+- **2026-09-28 — Python unit suite:**
+  `python3 -m unittest discover -s tests -v` — 8 tests passed. Coverage includes
+  local bridge framing and socket round trips, export-document validation,
+  plugin-family variant grouping, and the six-category limit. These checks do
+  not replace the Ableton Live integration and UI checks below.
+
 ## Plugin artwork
 
 - [ ] **IMG-01 — Defer image preparation.** On a clean BubblePlug profile, defer
