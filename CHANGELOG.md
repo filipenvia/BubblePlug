@@ -11,6 +11,8 @@ versions and dates may change until the first public release.
   private paths, Live Set details and credentials.
 - Clarified build prerequisites, unsigned-package limitations and Screen
   Recording permission guidance. Clean product screenshots remain outstanding.
+- Removed the unverified preset name from Mixer; final visual confirmation in
+  Ableton Live remains part of release QA.
 - Added a Universal macOS build path for Intel and Apple Silicon.
 - Added persistent Chain Sets and Ableton `.adg` rack export for supported
   serial chains.

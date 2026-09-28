@@ -19,8 +19,9 @@ work; items may change as manual Ableton testing reveals issues.
   open-source.
 - [ ] Prepare a screenshot-based setup and usage guide, with personal project
   names and paths removed from screenshots.
-- [ ] Remove the current preset label from Mixer. Do not show a guessed,
-  default, or otherwise unverified preset name in the first release.
+- [x] Remove the unverified preset label from Mixer. The app no longer shows a
+  guessed or default preset name; the visual result still needs final manual
+  confirmation in Ableton Live.
 
 ## After the first release
 

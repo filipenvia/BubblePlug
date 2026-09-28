@@ -78,9 +78,9 @@ the user and is not a pending test in this checklist.
 - [ ] **MIX-03 — Values and controls.** Compare displayed volume and pan with
   Live. Change each value through BubblePlug and Live, then confirm both views
   stay synchronized and reopening Mixer refreshes from Live.
-- [ ] **MIX-04 — Remove misleading preset text.** Confirm the current Mixer no
-  longer displays an assumed value such as `Preset · Default` when it cannot
-  read the actual plugin preset.
+- [ ] **MIX-04 — Confirm preset label removal.** The Mixer rendering code no
+  longer displays an assumed value such as `Preset · Default`. Confirm the
+  result visually in a real Live Set before release.
 - [ ] **MIX-05 — Snapshot trigger and recovery.** Open Mixer and confirm it
   refreshes and saves a recovery snapshot. Make a structural/device change and
   save the Live Set; confirm a snapshot is updated. Move a plugin control

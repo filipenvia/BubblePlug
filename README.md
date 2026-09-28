@@ -173,8 +173,8 @@ inspect existing mixer snapshots. They are stored in
   criteria. Startup, CPU, memory, image-capture timing and extended-use
   measurements have already been completed; image coverage and correctness
   still need review.
-- Remove the current preset label from Mixer before the first release; it can
-  show a value Live does not reliably identify as the plug-in's actual preset.
+- Confirm visually in Live that Mixer no longer shows an assumed or unverified
+  plug-in preset label (the rendering code has already been removed).
 - Generalize VST2/VST3/CLAP/AU classification and plugin-family variant
   grouping; the current catalog is VST3-only and grouping is provisional.
 - The local category limit is six, matching Ableton's available Collection
