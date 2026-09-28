@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum PlugSpotPalette {
+enum BubblePlugPalette {
     static let canvas = Color(red: 0.025, green: 0.045, blue: 0.10)
     static let card = Color(red: 0.045, green: 0.09, blue: 0.18)
     static let selectedCard = Color(red: 0.055, green: 0.18, blue: 0.31)
@@ -31,7 +31,7 @@ enum BubblePlugArtwork {
     }()
 }
 
-struct PlugSpotAudioMark: View {
+struct BubblePlugAudioMark: View {
     var size: CGFloat = 34
     var body: some View {
         Group {
@@ -39,7 +39,7 @@ struct PlugSpotAudioMark: View {
                 Image(nsImage: logo).resizable().interpolation(.high).scaledToFit()
             } else {
                 Image(systemName: "slider.vertical.3").resizable().scaledToFit()
-                    .foregroundStyle(PlugSpotPalette.cyan)
+                    .foregroundStyle(BubblePlugPalette.cyan)
             }
         }
         .frame(width: size, height: size)
@@ -58,12 +58,12 @@ struct BubbleMonogram: View {
         ZStack {
             Circle()
                 .fill(RadialGradient(
-                    colors: [PlugSpotPalette.blue.opacity(0.44), PlugSpotPalette.violet.opacity(0.23), PlugSpotPalette.cyan.opacity(0.12)],
+                    colors: [BubblePlugPalette.blue.opacity(0.44), BubblePlugPalette.violet.opacity(0.23), BubblePlugPalette.cyan.opacity(0.12)],
                     center: .init(x: 0.34, y: 0.28), startRadius: 0, endRadius: diameter * 0.7
                 ))
                 .overlay {
                     Circle().strokeBorder(
-                        AngularGradient(colors: [PlugSpotPalette.cyan, .white.opacity(0.9), PlugSpotPalette.violet, PlugSpotPalette.blue, PlugSpotPalette.cyan], center: .center),
+                        AngularGradient(colors: [BubblePlugPalette.cyan, .white.opacity(0.9), BubblePlugPalette.violet, BubblePlugPalette.blue, BubblePlugPalette.cyan], center: .center),
                         lineWidth: max(1.5, diameter * 0.055)
                     )
                 }
@@ -74,13 +74,13 @@ struct BubbleMonogram: View {
                         .rotationEffect(.degrees(-38))
                         .offset(x: diameter * 0.23, y: diameter * 0.13)
                 }
-                .shadow(color: PlugSpotPalette.cyan.opacity(0.30), radius: diameter * 0.12)
+                .shadow(color: BubblePlugPalette.cyan.opacity(0.30), radius: diameter * 0.12)
             Text(initials)
                 .font(.system(size: diameter * (initials.count > 1 ? 0.38 : 0.46), weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
-                .shadow(color: PlugSpotPalette.canvas.opacity(0.8), radius: 2)
+                .shadow(color: BubblePlugPalette.canvas.opacity(0.8), radius: 2)
         }
         .frame(width: diameter, height: diameter)
         .frame(width: width, height: height)
@@ -92,10 +92,10 @@ struct BubblePlugSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
             .preferredColorScheme(.dark)
-            .tint(PlugSpotPalette.cyan)
-            .background(PlugSpotPalette.backdrop)
+            .tint(BubblePlugPalette.cyan)
+            .background(BubblePlugPalette.backdrop)
             .overlay(alignment: .top) {
-                Rectangle().fill(PlugSpotPalette.iridescence).frame(height: 1).opacity(0.65)
+                Rectangle().fill(BubblePlugPalette.iridescence).frame(height: 1).opacity(0.65)
                     .allowsHitTesting(false)
             }
     }

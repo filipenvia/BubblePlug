@@ -17,13 +17,13 @@ public enum BridgeClientError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .socketPathTooLong:
-            return "PlugSpot cannot reach Ableton Live because the bridge path is too long. Reinstall the Live Remote Script in the default location."
+            return "BubblePlug cannot reach Ableton Live because the bridge path is too long. Reinstall the Live Remote Script in the default location."
         case .connectionFailed(let code):
             switch code {
             case ENOENT, ECONNREFUSED:
-                return "Ableton Live is not connected. Open Live and make sure the PlugSpot Remote Script is enabled."
+                return "Ableton Live is not connected. Open Live and make sure the BubblePlug Remote Script is enabled."
             case EACCES, EPERM:
-                return "PlugSpot cannot access Ableton Live's local bridge. Check the PlugSpot Remote Script installation and macOS permissions."
+                return "BubblePlug cannot access Ableton Live's local bridge. Check the BubblePlug Remote Script installation and macOS permissions."
             default:
                 return "Could not connect to Ableton Live (system error \(code)). Try refreshing the library."
             }
@@ -40,7 +40,7 @@ public enum BridgeClientError: Error, Equatable, LocalizedError {
 public final class UnixDomainSocketClient: AbletonBridge, @unchecked Sendable {
     public static let defaultSocketPath =
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot/bridge.sock")
+            .appendingPathComponent("Library/Application Support/BubblePlug/bridge.sock")
             .path
 
     private let socketPath: String

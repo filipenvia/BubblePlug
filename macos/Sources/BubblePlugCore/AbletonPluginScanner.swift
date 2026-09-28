@@ -7,7 +7,7 @@ public enum AbletonPluginScannerError: Error, LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .scannerUnavailable:
-            return "Ableton's VST3 scan data is unavailable. PlugSpot could not resolve this plug-in's installed bundle."
+            return "Ableton's VST3 scan data is unavailable. BubblePlug could not resolve this plug-in's installed bundle."
         case .pluginNotFound(let name):
             return "Could not match \(name) to its installed VST3 bundle in Ableton's scan data."
         }

@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-APP="${ROOT_DIR}/build/PlugSpot.app"
+APP="${ROOT_DIR}/build/BubblePlug.app"
 PKGROOT="${ROOT_DIR}/build/pkgroot"
 PKG="${ROOT_DIR}/build/BubblePlug-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRIPT_DIR/Resources/Info.plist").pkg"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRIPT_DIR/Resources/Info.plist")"
@@ -15,8 +15,8 @@ VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRI
   "$PKGROOT/Applications" \
   "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/Remote Scripts"
 /usr/bin/ditto "$APP" "$PKGROOT/Applications/BubblePlug.app"
-/usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' "$ROOT_DIR/remote_script/PlugSpot/" \
-  "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/Remote Scripts/PlugSpot/"
+/usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' "$ROOT_DIR/remote_script/BubblePlug/" \
+  "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/Remote Scripts/BubblePlug/"
 /bin/cp "$SCRIPT_DIR/ableton-export-worker.py" \
   "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/ableton-export-worker.py"
 /bin/cp "$SCRIPT_DIR/configure-launcher.sh" \
@@ -28,8 +28,9 @@ VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRI
 
 /usr/bin/pkgbuild \
   --root "$PKGROOT" \
+  --component-plist "$SCRIPT_DIR/PackageComponents.plist" \
   --scripts "$SCRIPT_DIR/pkg" \
-  --identifier "com.plugspot.pkg" \
+  --identifier "com.bubbleplug.pkg" \
   --version "$VERSION" \
   --install-location / \
   "$PKG"

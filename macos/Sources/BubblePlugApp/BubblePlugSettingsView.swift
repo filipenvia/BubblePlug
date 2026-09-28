@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-final class PlugSpotGlobalHotKeyController {
+final class BubblePlugGlobalHotKeyController {
     static let signature = OSType(0x50534754) // PSGT
     static let hotKeyID = UInt32(1)
 
@@ -46,9 +46,9 @@ final class PlugSpotGlobalHotKeyController {
                     &receivedID
                 )
                 guard status == noErr,
-                      receivedID.signature == PlugSpotGlobalHotKeyController.signature,
-                      receivedID.id == PlugSpotGlobalHotKeyController.hotKeyID else { return noErr }
-                let controller = Unmanaged<PlugSpotGlobalHotKeyController>.fromOpaque(userData).takeUnretainedValue()
+                      receivedID.signature == BubblePlugGlobalHotKeyController.signature,
+                      receivedID.id == BubblePlugGlobalHotKeyController.hotKeyID else { return noErr }
+                let controller = Unmanaged<BubblePlugGlobalHotKeyController>.fromOpaque(userData).takeUnretainedValue()
                 DispatchQueue.main.async { controller.onPress?() }
                 return noErr
             },
@@ -60,7 +60,7 @@ final class PlugSpotGlobalHotKeyController {
     }
 }
 
-struct PlugSpotSettingsView: View {
+struct BubblePlugSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var bubbleScale: Double
     @Binding var bubbleTransparency: Double
@@ -81,7 +81,7 @@ struct PlugSpotSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
-                PlugSpotAudioMark(size: 44)
+                BubblePlugAudioMark(size: 44)
                 Text("Settings").font(.title2.weight(.semibold))
             }
 

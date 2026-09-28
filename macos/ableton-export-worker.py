@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 HOME = Path.home()
-SUPPORT = HOME / "Library/Application Support/PlugSpot"
+SUPPORT = HOME / "Library/Application Support/BubblePlug"
 EXPORT_JOURNAL = SUPPORT / "ableton-collections-export.journal.json"
 PREFS = HOME / "Library/Preferences/Ableton"
 DB_DIR = HOME / "Library/Application Support/Ableton/Live Database"
@@ -71,18 +71,18 @@ def load_document(path):
     try:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
     except Exception as exc:
-        raise ExportError("The staged PlugSpot library is not valid JSON.") from exc
+        raise ExportError("The staged BubblePlug library is not valid JSON.") from exc
     if document.get("schemaVersion") != 2:
-        raise ExportError("This export requires PlugSpot library schema version 2.")
+        raise ExportError("This export requires BubblePlug library schema version 2.")
     categories = document.get("categories", [])
     if len(categories) > 6:
-        raise ExportError("Ableton supports six PlugSpot categories plus Favorites.")
+        raise ExportError("Ableton supports six BubblePlug categories plus Favorites.")
     colors = [item.get("colorIndex") for item in categories]
     if any(not isinstance(color, int) or not 2 <= color <= 7 for color in colors) or len(set(colors)) != len(colors):
-        raise ExportError("PlugSpot categories must use unique Ableton colors 2 through 7.")
+        raise ExportError("BubblePlug categories must use unique Ableton colors 2 through 7.")
     names = [normalized(item.get("name", "")) for item in categories]
     if any(not name for name in names) or len(set(names)) != len(names):
-        raise ExportError("PlugSpot category names must be non-empty and unique.")
+        raise ExportError("BubblePlug category names must be non-empty and unique.")
     return document
 
 
@@ -162,7 +162,7 @@ def match_families(document, cfg, db, plugin_db):
             missing.append({"name": family["name"], "vendor": family["vendor"], "reason": "not_found"})
             continue
         # Multiple identifiers are channel/layout variants of the same family,
-        # matching PlugSpot's own grouping rule; assign every variant.
+        # matching BubblePlug's own grouping rule; assign every variant.
         for device_id in candidates:
             mapped.setdefault(device_id, set()).update(family["colors"])
     return {
@@ -259,7 +259,7 @@ def recover_interrupted_export():
         backup_dir = Path(journal["backupDirectory"]).resolve()
         expected_parent = (SUPPORT / "backups").resolve()
         if backup_dir.parent != expected_parent:
-            raise ExportError("The interrupted export journal points outside PlugSpot's backup directory.")
+            raise ExportError("The interrupted export journal points outside BubblePlug's backup directory.")
         entries = journal["files"]
         if not isinstance(entries, list) or not entries:
             raise ExportError("The interrupted export journal has no recovery file list.")
@@ -277,7 +277,7 @@ def recover_interrupted_export():
             backup = Path(backup_value).resolve()
             if backup.parent != backup_dir or not backup.is_file():
                 raise ExportError("A required backup for the interrupted export is missing.")
-            descriptor, temporary = tempfile.mkstemp(prefix="." + target.name + ".plugspot-restore-", dir=str(target.parent))
+            descriptor, temporary = tempfile.mkstemp(prefix="." + target.name + ".bubbleplug-restore-", dir=str(target.parent))
             os.close(descriptor)
             try:
                 shutil.copy2(backup, temporary)
@@ -319,7 +319,7 @@ def update_library_config(cfg_path, categories):
     if found != set(range(1, 8)):
         raise ExportError("Library.cfg does not contain all seven Collection labels; no changes were applied.")
     original_mode = cfg_path.stat().st_mode
-    temp_path = cfg_path.with_name(cfg_path.name + ".plugspot-tmp")
+    temp_path = cfg_path.with_name(cfg_path.name + ".bubbleplug-tmp")
     tree.write(temp_path, encoding="UTF-8", xml_declaration=True)
     os.chmod(temp_path, original_mode)
     os.replace(temp_path, cfg_path)
@@ -338,7 +338,7 @@ def apply_export(request_path, result_path):
         if matched["missing"]:
             names = ", ".join(item["name"] for item in matched["missing"][:12])
             more = " and more" if len(matched["missing"]) > 12 else ""
-            raise ExportError("Some PlugSpot plugins could not be matched (%s%s). No Collections were changed." % (names, more))
+            raise ExportError("Some BubblePlug plugins could not be matched (%s%s). No Collections were changed." % (names, more))
         existing_database_parts = [Path(str(db) + suffix) for suffix in ("-wal", "-shm", "-journal") if Path(str(db) + suffix).exists()]
         backup_dir = make_backup([cfg, db, *existing_database_parts])
         journal = {"backupDirectory": str(backup_dir), "files": export_journal_entries(cfg, db, backup_dir)}
@@ -375,7 +375,7 @@ def apply_export(request_path, result_path):
             os.close(directory_fd)
         result["recoveredPreviousInterruptedExport"] = recovered_previous_export
         result.update({
-            "ok": True, "message": "Ableton Collections were replaced from PlugSpot.",
+            "ok": True, "message": "Ableton Collections were replaced from BubblePlug.",
             "backupDirectory": str(backup_dir), "matchedFamilies": matched["matchedFamilies"],
             "mappedDevices": matched["mappedDevices"], "clearedItems": cleared,
             "categories": len(document.get("categories", [])),

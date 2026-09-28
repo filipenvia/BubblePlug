@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SDK_DIR="$ROOT_DIR/build/vendor/vst3sdk"
 BUILD_DIR="$ROOT_DIR/build/vst3-image-helper-build"
 SDK_REVISION="3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
-CMAKE_BIN="${PLUGSPOT_CMAKE_BIN:-cmake}"
+CMAKE_BIN="${BUBBLEPLUG_CMAKE_BIN:-cmake}"
 
 if [[ ! -d "$SDK_DIR/.git" ]]; then
   mkdir -p "$(dirname "$SDK_DIR")"
@@ -56,6 +56,6 @@ if [[ ! -d "$HELPER" ]]; then
 fi
 /usr/libexec/PlistBuddy -c 'Add :LSUIElement bool true' "$HELPER/Contents/Info.plist" 2>/dev/null || \
   /usr/libexec/PlistBuddy -c 'Set :LSUIElement true' "$HELPER/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.plugspot.imagecapture' "$HELPER/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.bubbleplug.imagecapture' "$HELPER/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleName BubblePlug Image Capture' "$HELPER/Contents/Info.plist"
 print "$HELPER"

@@ -5,7 +5,7 @@ above, larger below), joined to a fader, inside an iridescent soap bubble.
 
 ## Assets
 
-- `../../macos/Sources/PlugSpotApp/Resources/BubblePlug.png`: approved generated
+- `../../macos/Sources/BubblePlugApp/Resources/BubblePlug.png`: approved generated
   raster artwork used by the app header and floating bubble.
 - `../../macos/Resources/BubblePlug.icns`: macOS application icon, exported from
   the approved artwork at standard icon sizes.
@@ -25,7 +25,7 @@ white text and cyan actions keep the content readable; pink/violet reflections
 are restrained border accents. Category and Ableton track colors retain their
 functional meaning. No animated reflections or extra polling are introduced.
 
-Public window/header branding is BubblePlug. Existing PlugSpot bundle ID,
+Public window/header branding is BubblePlug. Existing BubblePlug bundle ID,
 executable, launcher paths, Remote Script and storage keys remain compatible.
 
 ## Export

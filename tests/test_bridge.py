@@ -10,12 +10,12 @@ from pathlib import Path
 
 # The Remote Script package imports Ableton at package entry, which is
 # unavailable in standalone tests. Load its pure-Python modules as a package.
-package = types.ModuleType("remote_script.PlugSpot")
-package.__path__ = [str(Path(__file__).resolve().parents[1] / "remote_script/PlugSpot")]
-sys.modules["remote_script.PlugSpot"] = package
+package = types.ModuleType("remote_script.BubblePlug")
+package.__path__ = [str(Path(__file__).resolve().parents[1] / "remote_script/BubblePlug")]
+sys.modules["remote_script.BubblePlug"] = package
 
-from remote_script.PlugSpot.bridge_dispatcher import BridgeDispatcher
-from remote_script.PlugSpot.bridge_server import BridgeServer
+from remote_script.BubblePlug.bridge_dispatcher import BridgeDispatcher
+from remote_script.BubblePlug.bridge_server import BridgeServer
 
 
 class FakeLive:

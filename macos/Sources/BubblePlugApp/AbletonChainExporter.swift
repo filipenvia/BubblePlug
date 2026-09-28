@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import PlugSpotCore
+import BubblePlugCore
 
 enum AbletonChainExportError: LocalizedError {
     case emptyChain

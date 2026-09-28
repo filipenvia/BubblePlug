@@ -20,7 +20,7 @@ def snapshot():
             continue
         pid, cpu, rss, command = parts
         name = pathlib.Path(command).name
-        if name in ("PlugSpotApp", "BubblePlugCapture", "Live"):
+        if name in ("BubblePlugApp", "BubblePlugCapture", "Live"):
             found.setdefault(name, []).append((int(pid), float(cpu), int(rss)))
     return found
 
@@ -40,7 +40,7 @@ def main():
                          "live_pid", "live_cpu_percent", "live_rss_kib"))
         while time.monotonic() < deadline:
             processes = snapshot()
-            app = (processes.get("PlugSpotApp") or [("", "", "")])[0]
+            app = (processes.get("BubblePlugApp") or [("", "", "")])[0]
             helper = (processes.get("BubblePlugCapture") or [("", "", "")])[0]
             live = (processes.get("Live") or [("", "", "")])[0]
             writer.writerow((time.time(), *app, *helper, *live))

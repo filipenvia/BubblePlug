@@ -18,8 +18,8 @@ class _PendingRequest:
 
 
 class BridgeServer:
-    SOCKET_RELATIVE_PATH = "~/Library/Application Support/PlugSpot/bridge.sock"
-    LOCK_RELATIVE_PATH = "~/Library/Application Support/PlugSpot/bridge.lock"
+    SOCKET_RELATIVE_PATH = "~/Library/Application Support/BubblePlug/bridge.sock"
+    LOCK_RELATIVE_PATH = "~/Library/Application Support/BubblePlug/bridge.lock"
     MAX_PENDING_REQUESTS = 64
     # Leave time for the Swift client's socket timeout to return Live's
     # structured timeout response instead of racing it at the same deadline.
@@ -53,7 +53,7 @@ class BridgeServer:
         except OSError as exc:
             self._lock_file.close()
             self._lock_file = None
-            raise RuntimeError("Another PlugSpot bridge owns the local socket") from exc
+            raise RuntimeError("Another BubblePlug bridge owns the local socket") from exc
 
         # The exclusive process lock proves that any leftover socket is stale.
         if os.path.exists(self._socket_path):
@@ -101,11 +101,11 @@ class BridgeServer:
             self._thread = threading.Thread(
                 target=self._server.serve_forever,
                 kwargs={"poll_interval": 0.1},
-                name="PlugSpot-UDS",
+                name="BubblePlug-UDS",
                 daemon=True,
             )
             self._thread.start()
-            self._log("PlugSpot bridge listening on user-local Unix socket")
+            self._log("BubblePlug bridge listening on user-local Unix socket")
         except Exception:
             if self._server is not None:
                 self._server.server_close()
@@ -147,7 +147,7 @@ class BridgeServer:
             except OSError as exc:
                 self._log("Could not remove bridge socket: %s", exc)
         self._release_lock()
-        self._log("PlugSpot bridge stopped")
+        self._log("BubblePlug bridge stopped")
 
     @staticmethod
     def _request_id(line):

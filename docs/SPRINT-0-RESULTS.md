@@ -1,58 +1,95 @@
-# Sprint 0 — registo da prova técnica
+# Sprint 0 — Technical Feasibility Record
 
-Registo histórico da prova feita em 2026-09-25 no Mac de teste. O gate e as
-caixas assinaladas abaixo representam o estado no fim desse sprint; o estado
-actual e as tarefas restantes estão em `PlugSpot_PROJECT_PLAN.md`. Não assumir
-que IDs, propriedades ou métodos da API interna são estáveis.
+Historical record of the technical feasibility work performed on 2026-09-25
+on the test Mac. The gate and checked boxes below reflect the state at the end
+of that sprint. The current project state and remaining work are documented in
+`BubblePlug_PROJECT_PLAN.md`. Internal API IDs, properties, and methods must
+not be assumed stable.
 
-## Ambiente
+## Environment
 
-- Data: 2026-09-25
-- macOS / versão: macOS 13.7.8 (Ventura)
-- Modelo / arquitectura (Intel ou Apple Silicon): iMac18,2, Intel Core i7 quad-core 3,6 GHz, 20 GB RAM, x86_64
-- Ableton Live / versão exacta: Live 12 Suite 12.4.2
-- Python do Remote Script, se conhecido: Python 3.11.6 (embedded)
-- Plugins VST3 de teste: 418 bundles encontrados em `/Library/Audio/Plug-Ins/VST3`; 1.373 itens carregáveis reconhecidos na árvore VST3 do Browser.
+- Date: 2026-09-25
+- macOS version: macOS 13.7.8 (Ventura)
+- Model and architecture: iMac18,2, Intel Core i7 quad-core 3.6 GHz, 20 GB RAM, x86_64
+- Ableton Live version: Live 12 Suite 12.4.2
+- Remote Script Python version, if known: Python 3.11.6 (embedded)
+- Test VST3 plugins: 418 bundles found in `/Library/Audio/Plug-Ins/VST3`; 1,373 loadable items recognized in the VST3 Browser tree.
 
-## Observações
+## Observations
 
-| Prova | Resultado | Evidência / notas |
+| Check | Result | Evidence / notes |
 | --- | --- | --- |
-| Remote Script carrega | Confirmado | `PlugSpot` aparece nas MIDI Remote Scripts do Log.txt e escreve no log de diagnóstico. |
-| Versão do Live obtida | Confirmado | 12.4.2 via `Application.get_major_version/minor_version/bugfix_version`. |
-| Track seleccionada obtida | Confirmado | A track seleccionada no teste foi `1-MIDI`. |
-| Browser enumerável | Confirmado | Árvore `Plug-Ins` percorrida: 2.223 itens sem truncar. URI distingue `#VST3:` de `#VST:`. |
-| VST3 distinguíveis de outros itens | Confirmado | Ex.: Pro-Q 4 VST3 tem URI `query:Plugins#VST3:FabFilter:Pro-Q%204`; há também um item homónimo sob `#VST:Local`. |
-| ID mantém-se após reiniciar Live | Confirmado para o URI observado | `query:Plugins#VST3:FabFilter:Pro-Q%204` repetiu-se antes e depois do reinício do Live. |
-| Pedido de inserção VST3 chega ao Live | Confirmado | Pedido real pelo socket UDS para `query:Plugins#VST3:Arturia:Pigments`; resposta `ok:true`, track efectiva `1-Pigments`; Log.txt regista “Going to create: Pigments”. |
-| Processador Pigments inicializa | Falhou | Live registou `plugin processor could not be initialized` e `Failed: Pigments` para Arturia Pigments 4.0.1.2949. A API de inserção foi alcançada; falta testar se a falha é específica deste plugin. |
-| FabFilter Pro-Q 4 VST3 carrega manualmente pela app | Confirmado pelo utilizador | O utilizador seleccionou uma track de áudio e confirmou que o pedido de carga pela interface do PlugSpot funcionou. |
-| Formatos VST2/AU ou dispositivos Live infiltram-se na lista VST3 | Não | O adaptador parte de `application.browser.plugins` e só aceita URI com prefixo literal `query:Plugins#VST3:`. O Browser separou `#VST:` e `#VST3:`; dispositivos Live estão noutros nós (`instruments`, `audio_effects`, etc.). |
-| Variantes de canal aparecem como plugins separados | Confirmado | O snapshot tem 1.373 entradas depois de remover 279 itens `.vstpreset`. 720 entradas são Waves e incluem variantes `Mono`, `Stereo`, `Mono/Stereo` e surround. Agrupando o sufixo de canal, ficam cerca de 982 nomes de plugin, dos quais 331 Waves. |
-| Segundo load num alvo diferente | Não executado | A track seleccionada passou a chamar-se `1-Pigments` e o adaptador recusou o segundo load porque já não estava vazia (`track_not_empty`). Não se tentou contornar a protecção no mesmo canal. |
-| Três loads consecutivos funcionam | Pendente | |
-| Inserção observada em audio/MIDI/return/master | Pendente | |
+| Remote Script loads | Confirmed | `BubblePlug` appears in Live's MIDI Remote Scripts section of `Log.txt` and writes to the diagnostic log. |
+| Live version detected | Confirmed | 12.4.2 via `Application.get_major_version/minor_version/bugfix_version`. |
+| Selected track detected | Confirmed | The selected test track was `1-MIDI`. |
+| Browser can be enumerated | Confirmed | The `Plug-Ins` tree was traversed: 2,223 items without truncation. URIs distinguish `#VST3:` from `#VST:`. |
+| VST3 items distinguished from other items | Confirmed | For example, the Pro-Q 4 VST3 URI is `query:Plugins#VST3:FabFilter:Pro-Q%204`; a VST item with the same name also exists under `#VST:Local`. |
+| ID remains the same after restarting Live | Confirmed for the observed URI | `query:Plugins#VST3:FabFilter:Pro-Q%204` was identical before and after restarting Live. |
+| VST3 insertion request reaches Live | Confirmed | A real request over the UDS socket used `query:Plugins#VST3:Arturia:Pigments`; the response was `ok:true`, with effective track `1-Pigments`. `Log.txt` recorded “Going to create: Pigments”. |
+| Pigments processor initializes | Failed | Live logged `plugin processor could not be initialized` and `Failed: Pigments` for Arturia Pigments 4.0.1.2949. The insertion API was reached; it was not determined whether the failure was specific to this plugin. |
+| FabFilter Pro-Q 4 VST3 loads through the app | Confirmed by the user | The user selected an audio track and confirmed that loading from the BubblePlug interface worked. |
+| VST2/AU formats or Live devices appear in the VST3 list | No | The adapter starts from `application.browser.plugins` and accepts only URIs with the literal prefix `query:Plugins#VST3:`. The Browser separated `#VST:` and `#VST3:`; Live devices appear under other nodes (`instruments`, `audio_effects`, etc.). |
+| Channel variants appear as separate plugins | Confirmed | The snapshot had 1,373 entries after removing 279 `.vstpreset` items. 720 entries were Waves and included `Mono`, `Stereo`, `Mono/Stereo`, and surround variants. Grouping channel suffixes produced about 982 plugin names, including 331 Waves names. |
+| Second load on a different target | Not run | The selected track had become `1-Pigments`; the adapter rejected a second load because that track was no longer empty (`track_not_empty`). The safety check was not bypassed on the same track. |
+| Three consecutive loads work | Pending at the time of this sprint | |
+| Insertion observed on audio/MIDI/return/master tracks | Pending at the time of this sprint | |
 
-## Preparação observada
+## Recorded setup and findings
 
-- Mac de teste: macOS 13.7.8 (Ventura), iMac18,2 Intel x86_64 com 20 GB de RAM.
-- Live 12 Suite 12.4.2 executou o script PlugSpot a partir de `~/Music/Ableton/User Library/Remote Scripts/PlugSpot`.
-- O Live embebe Python 3.11.6. A API usada expõe `application` e `song` como propriedades no `ControlSurface` deste script.
-- `Application.browser` existe e expõe `plugins`, `instruments`, `audio_effects`, `midi_effects`, `sounds`, `drums`, `max_for_live`, `user_folders` e `user_library`.
-- Contagem directa de filhos observada: Plug-Ins 2, Instruments 24, Audio Effects 47, MIDI Effects 16, Sounds 17, Drums 167, Max for Live 3, User Library 24.
-- A árvore Plug-Ins percorreu 2.223 itens sem truncar. O Browser reconheceu 1.373 entradas carregáveis sob `#VST3:`. O URI do FabFilter Pro-Q 4 repetiu-se após reiniciar Live: `query:Plugins#VST3:FabFilter:Pro-Q%204`. Isto confirma só o caso observado, não todos os IDs/variantes.
-- A contagem física dos bundles VST3 varia entre as medições registadas neste sprint (418/419 no sistema, mais 1 na pasta do utilizador); os itens indexados no Browser são identificados pela URI. O URI do Pro-Q persistiu, mas a identidade persistente geral continua por confirmar.
-- A contagem física observada em `/Library/Audio/Plug-Ins/VST3` é 419 bundles de sistema e há mais 1 em `~/Library/Audio/Plug-Ins/VST3`. Há também 244 bundles VST2 e 385 componentes AU em pastas separadas; nenhum destes formatos é admitido pelo prefixo URI do catálogo.
-- A diferença entre bundles físicos e entradas Live deve-se sobretudo à expansão das Waveshells em variantes mono, stereo e surround. O PlugSpot agora agrupa estas opções em famílias e conserva os URIs exactos no selector de variantes; os valores 1.373/982 vêm do snapshot do Live e da normalização dos nomes, não do número de ficheiros instalados.
-- A presença de bundles VST3 no sistema não prova que o Live os tenha indexado ou reconhecido. A árvore do Browser distingue `#VST3:` de `#VST:` e contém o Pro-Q 4 VST3.
-- O primeiro teste de inserção seleccionou por nome o item errado (`query:Plugins#VST:Local:FabFilter%20Pro-Q%204`) e a faixa activa era MIDI. Logo após o registo imediatamente anterior à chamada `browser.load_item`, Live 12.4.2 sofreu `EXC_BAD_ACCESS` no main thread (relatório `Live-2026-09-25-152844.ips`). A causa exacta não está simbolizada; removeram-se a chamada automática e o gatilho de execução única. Após isso, Live voltou a arrancar e percorreu a árvore sem erro, reconhecendo 1.373 itens VST3.
-- O primeiro teste teve um erro de acesso a `application`; corrigido no script e validado após reiniciar Live e selecionar PlugSpot.
-- Depois do crash, Live voltou a abrir com o script seguro. Nova enumeração terminou sem erro: 2.223 itens percorridos, 1.373 entradas VST3 classificadas e o URI do Pro-Q 4 repetido.
+- Test Mac: macOS 13.7.8 (Ventura), iMac18,2, Intel x86_64, 20 GB RAM.
+- Live 12 Suite 12.4.2 ran the BubblePlug script from
+  `~/Music/Ableton/User Library/Remote Scripts/BubblePlug`.
+- Live embeds Python 3.11.6. The API used by this script exposes `application`
+  and `song` as `ControlSurface` properties.
+- `Application.browser` exists and exposes `plugins`, `instruments`,
+  `audio_effects`, `midi_effects`, `sounds`, `drums`, `max_for_live`,
+  `user_folders`, and `user_library`.
+- Direct child counts observed: Plug-Ins 2, Instruments 24, Audio Effects 47,
+  MIDI Effects 16, Sounds 17, Drums 167, Max for Live 3, User Library 24.
+- The Plug-Ins tree traversal returned 2,223 items without truncation. Live's
+  Browser recognized 1,373 loadable entries under `#VST3:`. The FabFilter
+  Pro-Q 4 URI was the same after restarting Live:
+  `query:Plugins#VST3:FabFilter:Pro-Q%204`. This confirms only the observed
+  case, not all IDs or variants.
+- Physical VST3 bundle counts differed across measurements in this sprint
+  (418/419 system bundles, plus one in the user folder). Browser-indexed items
+  are identified by URI. The Pro-Q URI persisted, but general identity
+  persistence remains unconfirmed.
+- The physical count observed in `/Library/Audio/Plug-Ins/VST3` was 419 system
+  bundles, with one more in `~/Library/Audio/Plug-Ins/VST3`. Separate folders
+  also contained 244 VST2 bundles and 385 AU components; none of these formats
+  is admitted by the catalog URI prefix.
+- The difference between physical bundles and Live items is mainly due to
+  Waveshell expansion into mono, stereo, and surround variants. BubblePlug now
+  groups these options into families and retains exact URIs in the variant
+  selector. The 1,373/982 figures come from the Live snapshot and name
+  normalization, not from the number of installed files.
+- The presence of VST3 bundles on disk does not prove that Live indexed or
+  recognized them. The Browser tree distinguishes `#VST3:` from `#VST:` and
+  contains the Pro-Q 4 VST3 item.
+- The first insertion test selected the wrong item by name
+  (`query:Plugins#VST:Local:FabFilter%20Pro-Q%204`) while a MIDI track was
+  active. Immediately after the log entry preceding `browser.load_item`, Live
+  12.4.2 suffered `EXC_BAD_ACCESS` on the main thread (report
+  `Live-2026-09-25-152844.ips`). The exact cause was not symbolicated; the
+  automatic call and one-shot trigger were removed. Live then started again
+  and traversed the tree without error, recognizing 1,373 VST3 items.
+- The first test also encountered an error accessing `application`; this was
+  fixed in the script and validated after restarting Live and selecting
+  BubblePlug.
+- After the crash, Live reopened with the safe script. A new enumeration
+  completed without error: 2,223 items traversed, 1,373 VST3 entries classified,
+  and the Pro-Q 4 URI repeated.
 
-## Decisão do gate
+## Gate decision
 
-- [ ] Avançar para IPC mínimo
-- [x] Investigar API / compatibilidade
-- [ ] Reavaliar a viabilidade
+- [ ] Proceed to minimal IPC
+- [x] Investigate API and compatibility
+- [ ] Reassess feasibility
 
-Justificação: A primeira tentativa (URI VST, no arranque e numa track MIDI) coincidiu com crash nativo. O ensaio controlado comprovou que o caminho UDS → callback no Live → `browser.load_item` funciona. Embora Pigments tenha falhado a inicialização, o utilizador confirmou que o FabFilter Pro-Q 4 VST3 carregou pela app numa track de áudio. A viabilidade de inserção está confirmada; múltiplos loads e outros tipos de track continuam pendentes.
+Rationale: The first attempt (VST URI, at startup, on a MIDI track) coincided
+with a native crash. A controlled test proved that the UDS → Live callback →
+`browser.load_item` path works. Although Pigments failed to initialize, the
+user confirmed that FabFilter Pro-Q 4 VST3 loaded through the app on an audio
+track. Plugin insertion is feasible; multiple loads and other track types were
+still pending at the end of this historical sprint.

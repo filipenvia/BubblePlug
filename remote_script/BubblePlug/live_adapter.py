@@ -1,4 +1,4 @@
-"""Ableton Live adapter for PlugSpot."""
+"""Ableton Live adapter for BubblePlug."""
 
 from urllib.parse import unquote
 import uuid
@@ -252,7 +252,7 @@ class LiveAdapter:
         }
 
     def refresh_library(self):
-        """Discard PlugSpot's snapshot and read the current Live Browser again."""
+        """Discard BubblePlug's snapshot and read the current Live Browser again."""
         self._plugin_catalog = None
         self._browser_items = {}
         catalog = self._get_plugin_catalog()
@@ -279,7 +279,7 @@ class LiveAdapter:
         if not has_midi_input and not has_audio_input:
             raise LiveAdapterError("incompatible_track", "Select a MIDI or audio track")
 
-        # Permit repeated loads on a track so PlugSpot can build chains. Live's
+        # Permit repeated loads on a track so BubblePlug can build chains. Live's
         # Browser decides whether the requested device is compatible with the
         # selected track and reports load failures through its API.
         try:

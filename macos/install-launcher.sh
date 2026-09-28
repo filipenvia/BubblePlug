@@ -1,11 +1,12 @@
 #!/bin/zsh
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SUPPORT_DIR="$HOME/Library/Application Support/PlugSpot"
-REMOTE_DIR="$HOME/Music/Ableton/User Library/Remote Scripts/PlugSpot"
-mkdir -p "$SUPPORT_DIR" "$REMOTE_DIR"
+SUPPORT_DIR="$HOME/Library/Application Support/BubblePlug"
+REMOTE_DIR="$HOME/Music/Ableton/User Library/Remote Scripts/BubblePlug"
+NEW_CACHE_DIR="$HOME/Library/Caches/BubblePlug"
+mkdir -p "$SUPPORT_DIR" "$REMOTE_DIR" "$NEW_CACHE_DIR"
 chmod 700 "$SUPPORT_DIR"
-cp -R "$ROOT_DIR/remote_script/PlugSpot/." "$REMOTE_DIR/"
+cp -R "$ROOT_DIR/remote_script/BubblePlug/." "$REMOTE_DIR/"
 "$ROOT_DIR/macos/configure-launcher.sh"
 cat <<MSG
 Installed Ableton Remote Script at:

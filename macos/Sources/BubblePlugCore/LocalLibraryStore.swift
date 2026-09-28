@@ -70,7 +70,7 @@ public struct StoredChainSet: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-public struct PlugSpotLibraryDocument: Codable, Sendable, Equatable {
+public struct BubblePlugLibraryDocument: Codable, Sendable, Equatable {
     public let schemaVersion: Int
     public let exportedAt: Date
     public let favorites: [LocalPluginRecord]
@@ -144,7 +144,7 @@ public enum LocalLibraryStoreError: Error, LocalizedError, Sendable {
 public final class LocalLibraryStore: @unchecked Sendable {
     public static var defaultDatabaseURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot/library.sqlite3")
+            .appendingPathComponent("Library/Application Support/BubblePlug/library.sqlite3")
     }
 
     // Imports hold the lock across a complete SQLite transaction. Individual
@@ -431,14 +431,14 @@ public final class LocalLibraryStore: @unchecked Sendable {
         }
     }
 
-    public func exportDocument() throws -> PlugSpotLibraryDocument {
-        PlugSpotLibraryDocument(schemaVersion: 2, favorites: try favoriteRecords(), labels: try labels(), recentRecords: try recentRecords(limit: 500), categories: try categories())
+    public func exportDocument() throws -> BubblePlugLibraryDocument {
+        BubblePlugLibraryDocument(schemaVersion: 2, favorites: try favoriteRecords(), labels: try labels(), recentRecords: try recentRecords(limit: 500), categories: try categories())
     }
 
     /// Merges an exported library. Existing favorites, categories, and labels are preserved.
-    public func importDocument(_ document: PlugSpotLibraryDocument) throws {
+    public func importDocument(_ document: BubblePlugLibraryDocument) throws {
         guard (1...2).contains(document.schemaVersion) else {
-            throw LocalLibraryStoreError.database("This PlugSpot library file version is not supported.")
+            throw LocalLibraryStoreError.database("This BubblePlug library file version is not supported.")
         }
         lock.lock()
         defer { lock.unlock() }

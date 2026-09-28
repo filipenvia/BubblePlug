@@ -12,7 +12,7 @@ async function main() {
     .resize(1024, 1024).png().toFile(path.join(__dirname, 'BubblePlug-logo-vector-preview.png'));
   const iconset = path.join(root, 'build/branding/BubblePlug.iconset');
   await fs.mkdir(iconset, { recursive: true });
-  const source = path.join(root, 'macos/Sources/PlugSpotApp/Resources/BubblePlug.png');
+  const source = path.join(root, 'macos/Sources/BubblePlugApp/Resources/BubblePlug.png');
   for (const size of [16, 32, 128, 256, 512]) {
     for (const scale of [1, 2]) {
       await sharp(source).resize(size * scale, size * scale).png()

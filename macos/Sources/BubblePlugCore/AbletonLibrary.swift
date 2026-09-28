@@ -29,14 +29,14 @@ public enum AbletonLibraryError: Error, LocalizedError, Sendable {
             case "track_not_empty": return "The selected track is no longer empty. Choose another track and try again."
             case "load_failed": return "Ableton Live could not load this plugin. Check the selected track and plugin, then try again."
             case "invalid_plugin": return "Ableton Live rejected this plugin ID. Refresh the library and select the plugin again."
-            case "unsupported_protocol": return "PlugSpot and the Live Remote Script use different protocol versions. Update or reinstall the Remote Script."
+            case "unsupported_protocol": return "BubblePlug and the Live Remote Script use different protocol versions. Update or reinstall the Remote Script."
             default: return message.isEmpty ? "Ableton Live rejected the request (\(code))." : message
             }
         case .invalidResponse: return "Ableton Live returned an invalid response."
         case .liveVersionUnavailable:
-            return "PlugSpot could not identify the Ableton Live version. Update Live and the PlugSpot Remote Script, then try again."
+            return "BubblePlug could not identify the Ableton Live version. Update Live and the BubblePlug Remote Script, then try again."
         case .unsupportedLiveVersion(let version):
-            return "Ableton Live \(version) is not supported yet. PlugSpot has only validated Live 12.4.2 and can try later 12.4.x updates."
+            return "Ableton Live \(version) is not supported yet. BubblePlug has only validated Live 12.4.2 and can try later 12.4.x updates."
         }
     }
 }

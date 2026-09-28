@@ -12,21 +12,23 @@ fi
 
 USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^[^:]*: //')"
 USER_GROUP="$(/usr/bin/id -gn "$CONSOLE_USER")"
-REMOTE_DIR="$USER_HOME/Music/Ableton/User Library/Remote Scripts/PlugSpot"
+REMOTE_DIR="$USER_HOME/Music/Ableton/User Library/Remote Scripts/BubblePlug"
+SUPPORT_DIR="$USER_HOME/Library/Application Support/BubblePlug"
+/bin/mkdir -p "$SUPPORT_DIR" "$USER_HOME/Library/Caches/BubblePlug"
 
 /bin/mkdir -p "$REMOTE_DIR"
 /usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' \
-  "$PAYLOAD/Remote Scripts/PlugSpot/" "$REMOTE_DIR/"
+  "$PAYLOAD/Remote Scripts/BubblePlug/" "$REMOTE_DIR/"
 /usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$REMOTE_DIR"
 
 HOME="$USER_HOME" \
-PLUGSPOT_APP_PATH="$APP_PATH" \
-PLUGSPOT_WORKER_SOURCE="$PAYLOAD/ableton-export-worker.py" \
+BUBBLEPLUG_APP_PATH="$APP_PATH" \
+BUBBLEPLUG_WORKER_SOURCE="$PAYLOAD/ableton-export-worker.py" \
   /bin/zsh "$PAYLOAD/configure-launcher.sh"
 
-/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$USER_HOME/Library/Application Support/PlugSpot"
+/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$SUPPORT_DIR" "$USER_HOME/Library/Caches/BubblePlug" "$REMOTE_DIR"
 /bin/rm -rf "$PAYLOAD"
 /bin/rmdir "/Library/Application Support/BubblePlug" 2>/dev/null || true
 
-echo "BubblePlug installed. Restart Ableton Live to load the PlugSpot Control Surface."
+echo "BubblePlug installed. Restart Ableton Live and select BubblePlug under Control Surface."
 exit 0

@@ -4,7 +4,7 @@ import CoreGraphics
 import CryptoKit
 import Foundation
 import ImageIO
-import PlugSpotCore
+import BubblePlugCore
 import UniformTypeIdentifiers
 
 @MainActor
@@ -451,15 +451,15 @@ private enum HostedVST3ArtworkCapture {
 private enum PluginArtworkExtractor {
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tif", "tiff", "bmp"]
     private static let cacheDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("PlugSpot/Artwork", isDirectory: true)
+        .appendingPathComponent("BubblePlug/Artwork", isDirectory: true)
     private static var manifestURL: URL { cacheDirectory.appendingPathComponent("manifest.json") }
     private static let customDirectory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/PlugSpot/CustomArtwork", isDirectory: true)
+        .appendingPathComponent("Library/Application Support/BubblePlug/CustomArtwork", isDirectory: true)
     private static var overridesURL: URL { customDirectory.appendingPathComponent("overrides.json") }
 
     static func appendCaptureLog(_ line: String) {
         let directory = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/BubblePlug", isDirectory: true)
         let url = directory.appendingPathComponent("artwork-capture.log")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         guard let data = "\(ISO8601DateFormatter().string(from: Date())) \(line)\n".data(using: .utf8) else { return }

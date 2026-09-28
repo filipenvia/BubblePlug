@@ -1,9 +1,9 @@
-# PlugSpot architecture
+# BubblePlug architecture
 
 ## Runtime components
 
 ```text
-PlugSpot SwiftUI app
+BubblePlug SwiftUI app
   ├── plugin library, local SQLite data, settings
   ├── visual mixer and offline recovery-snapshot browser
   └── AbletonLibrary / AbletonBridge
@@ -20,7 +20,7 @@ Ableton Live Object Model / Browser API
 
 ### Swift side
 
-`PlugSpotCore` owns protocol models, the bridge abstraction, SQLite library
+`BubblePlugCore` owns protocol models, the bridge abstraction, SQLite library
 store, Ableton Collections reader, VST3 artwork lookup, and first-run artwork
 capture coordination. SwiftUI does not
 access Live objects directly. `MixerView` reads `get_mixer` on entry, writes an
@@ -35,28 +35,29 @@ surface callback. The script listens for track/device/parameter changes and
 debounces mixer snapshots. It copies Live-owned values on the callback, then
 queues JSON serialization and atomic disk writing on a background worker,
 outside the `.als` file. It postpones snapshot collection while Live is playing.
-These listeners and crash behavior still need a real Live Set check.
+The reference Mac's snapshot, mixer and Live lifecycle flows were manually
+checked with a real Live Set; see the [release QA record](RELEASE_QA_CHECKLIST.md).
 
 ### Local files
 
-- IPC socket: `~/Library/Application Support/PlugSpot/bridge.sock`;
-- SQLite library: `~/Library/Application Support/PlugSpot/library.sqlite3`;
-- mixer snapshots: `~/Library/Application Support/PlugSpot/MixerSnapshots/*.json`;
-- Remote Script log: `~/Documents/plugspot-remote.log`.
+- IPC socket: `~/Library/Application Support/BubblePlug/bridge.sock`;
+- SQLite library: `~/Library/Application Support/BubblePlug/library.sqlite3`;
+- mixer snapshots: `~/Library/Application Support/BubblePlug/MixerSnapshots/*.json`;
+- Remote Script log: `~/Documents/bubbleplug-remote.log`.
 
 The UDS directory is user-only, socket permissions are restricted, and a lock
 file prevents competing bridge instances. No network listener is used.
 
 ## Lifecycle and window behavior
 
-The Remote Script starts the local launcher when Live loads the PlugSpot
+The Remote Script starts the local launcher when Live loads the BubblePlug
 Control Surface. The launcher opens the app when the socket appears and closes
 it when a normal Live shutdown removes the socket. During an unexpected Live
 crash, the bridge/app may remain waiting for Live to return. The app is an
 `LSUIElement` and should not appear in the Dock. The bubble follows Live's
 window and is not globally always-on-top. The bubble's window tracking uses a
-200 ms timer; its real CPU/Space/full-screen behavior still needs visual
-verification.
+200 ms timer. Its focus, Space and fullscreen behavior were manually checked on
+the reference Mac; see the [release QA record](RELEASE_QA_CHECKLIST.md).
 
 ## Protocol
 

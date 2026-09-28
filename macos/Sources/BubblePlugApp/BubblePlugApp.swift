@@ -1,27 +1,27 @@
-import PlugSpotCore
+import BubblePlugCore
 import AppKit
 import CoreGraphics
 import SwiftUI
 import UniformTypeIdentifiers
 
 @main
-struct PlugSpotApp: App {
+struct BubblePlugApp: App {
     // The startup scene is replaced by a custom NSPanel that hosts a second
-    // PlugSpotView. Keep capture state app-scoped so both views cannot start
+    // BubblePlugView. Keep capture state app-scoped so both views cannot start
     // independent scans for the same catalog.
     @StateObject private var artworkStore = PluginArtworkStore()
     @State private var imageProgressPanel = ImageCaptureProgressPanel()
 
     var body: some Scene {
         WindowGroup {
-            PlugSpotView(artworkStore: artworkStore, imageProgressPanel: imageProgressPanel)
+            BubblePlugView(artworkStore: artworkStore, imageProgressPanel: imageProgressPanel)
                 .frame(minWidth: 440, minHeight: 520)
         }
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .appTermination) {
                 Button("Quit BubblePlug") {
-                    requestPlugSpotQuit()
+                    requestBubblePlugQuit()
                 }
                 .keyboardShortcut("q")
             }
@@ -29,15 +29,15 @@ struct PlugSpotApp: App {
     }
 }
 
-private func requestPlugSpotQuit() {
+private func requestBubblePlugQuit() {
     let supportDirectory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/PlugSpot", isDirectory: true)
+        .appendingPathComponent("Library/Application Support/BubblePlug", isDirectory: true)
     let quitRequest = supportDirectory.appendingPathComponent("user-quit.request")
     do {
         try FileManager.default.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
         try Data("user-requested".utf8).write(to: quitRequest, options: .atomic)
     } catch {
-        NSLog("PlugSpot could not record the requested quit: %@", error.localizedDescription)
+        NSLog("BubblePlug could not record the requested quit: %@", error.localizedDescription)
     }
     NSApp.terminate(nil)
 }
@@ -56,7 +56,7 @@ private struct AboutBubblePlugView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            PlugSpotAudioMark(size: 82)
+            BubblePlugAudioMark(size: 82)
             VStack(spacing: 4) {
                 Text("BubblePlug")
                     .font(.title2.weight(.bold))
@@ -71,7 +71,7 @@ private struct AboutBubblePlugView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Label("Made for music production", systemImage: "slider.horizontal.3")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(PlugSpotPalette.cyan)
+                .foregroundStyle(BubblePlugPalette.cyan)
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
@@ -83,27 +83,27 @@ private struct AboutBubblePlugView: View {
     }
 }
 
-private struct PlugSpotView: View {
-    @State private var bubbleController: PlugSpotBubbleController
+private struct BubblePlugView: View {
+    @State private var bubbleController: BubblePlugBubbleController
     @StateObject private var artworkStore: PluginArtworkStore
     private let imageProgressPanel: ImageCaptureProgressPanel
     @State private var didInitializeWindow = false
-    @State private var windowButtonTarget: PlugSpotWindowButtonTarget?
+    @State private var windowButtonTarget: BubblePlugWindowButtonTarget?
     @State private var scope: PluginListScope = .all
     @State private var isMixerVisible = false
     @State private var isAboutPresented = false
     @State private var didMigrateImageStartupPreference = false
-    @AppStorage("plugspot.displayMode") private var displayModeRaw = PluginDisplayMode.list.rawValue
-    @AppStorage("plugspot.cachedLiveVersion") private var cachedLiveVersion = ""
-    @AppStorage("plugspot.cachedCatalogJSON") private var cachedCatalogJSON = Data()
-    @AppStorage("plugspot.cachedScannerModification") private var cachedScannerModification = 0.0
-    @AppStorage("plugspot.bubble.scale") private var bubbleScale = 1.0
-    @AppStorage("plugspot.bubble.transparency") private var bubbleTransparency = 0.0
-    @AppStorage("plugspot.bubble.position.locked") private var bubblePositionLocked = false
-    @AppStorage("plugspot.images.startupMode.v2") private var imageStartupMode = "ask"
-    @AppStorage("plugspot.shortcut.keyCode") private var shortcutKeyCode = 35
-    @AppStorage("plugspot.shortcut.modifiers") private var shortcutModifiers = 0x1800
-    @AppStorage("plugspot.shortcut.label") private var shortcutLabel = "⌃⌥P"
+    @AppStorage("bubbleplug.displayMode") private var displayModeRaw = PluginDisplayMode.list.rawValue
+    @AppStorage("bubbleplug.cachedLiveVersion") private var cachedLiveVersion = ""
+    @AppStorage("bubbleplug.cachedCatalogJSON") private var cachedCatalogJSON = Data()
+    @AppStorage("bubbleplug.cachedScannerModification") private var cachedScannerModification = 0.0
+    @AppStorage("bubbleplug.bubble.scale") private var bubbleScale = 1.0
+    @AppStorage("bubbleplug.bubble.transparency") private var bubbleTransparency = 0.0
+    @AppStorage("bubbleplug.bubble.position.locked") private var bubblePositionLocked = false
+    @AppStorage("bubbleplug.images.startupMode.v2") private var imageStartupMode = "ask"
+    @AppStorage("bubbleplug.shortcut.keyCode") private var shortcutKeyCode = 35
+    @AppStorage("bubbleplug.shortcut.modifiers") private var shortcutModifiers = 0x1800
+    @AppStorage("bubbleplug.shortcut.label") private var shortcutLabel = "⌃⌥P"
     @State private var selectedVendorFilter: String?
     @State private var plugins: [PluginItem] = []
     @State private var catalogFamilies: [PluginFamily] = []
@@ -140,18 +140,18 @@ private struct PlugSpotView: View {
     @State private var isMissingArtworkPresented = false
     @State private var artworkManagerShowsImages = false
     @State private var shortcutStatus = ""
-    @State private var globalHotKeyController: PlugSpotGlobalHotKeyController?
+    @State private var globalHotKeyController: BubblePlugGlobalHotKeyController?
     @State private var showAbletonExportConfirmation = false
     @State private var showAbletonExportError = false
     @State private var abletonExportError = ""
     @State private var activeExportPanel: NSSavePanel?
-    @State private var abletonExportDocument: PlugSpotLibraryDocument?
+    @State private var abletonExportDocument: BubblePlugLibraryDocument?
     @State private var abletonExportPreflight: AbletonExportPreflight?
     private let library = AbletonLibrary()
     private let localStore: LocalLibraryStore? = try? LocalLibraryStore()
 
     init(
-        bubbleController: PlugSpotBubbleController = PlugSpotBubbleController(),
+        bubbleController: BubblePlugBubbleController = BubblePlugBubbleController(),
         artworkStore: PluginArtworkStore,
         imageProgressPanel: ImageCaptureProgressPanel
     ) {
@@ -238,7 +238,7 @@ private struct PlugSpotView: View {
 
     private var isRemoteScriptInstalledAtDefaultLocation: Bool {
         let scriptURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Music/Ableton/User Library/Remote Scripts/PlugSpot/__init__.py")
+            .appendingPathComponent("Music/Ableton/User Library/Remote Scripts/BubblePlug/__init__.py")
         return FileManager.default.fileExists(atPath: scriptURL.path)
     }
 
@@ -251,12 +251,12 @@ private struct PlugSpotView: View {
 
     private var bridgeUnavailableMessage: String {
         guard isAbletonLiveRunning else {
-            return "Waiting for Ableton Live. PlugSpot will keep trying to connect."
+            return "Waiting for Ableton Live. BubblePlug will keep trying to connect."
         }
         if isRemoteScriptInstalledAtDefaultLocation {
-            return "Ableton Live is open, but the PlugSpot Remote Script isn't responding. In Settings → Link, Tempo & MIDI, select PlugSpot under Control Surface and restart Live. Check ~/Documents/plugspot-remote.log if the problem continues."
+            return "Ableton Live is open, but the BubblePlug Remote Script isn't responding. In Settings → Link, Tempo & MIDI, select BubblePlug under Control Surface and restart Live. Check ~/Documents/bubbleplug-remote.log if the problem continues."
         }
-        return "Ableton Live is open, but the PlugSpot Remote Script wasn't found in the default User Library. Run macos/install-launcher.sh, check Live's custom User Library location, then restart Live."
+        return "Ableton Live is open, but the BubblePlug Remote Script wasn't found in the default User Library. Run macos/install-launcher.sh, check Live's custom User Library location, then restart Live."
     }
 
     private func isSupportedLiveVersion(_ version: String) -> Bool {
@@ -271,7 +271,7 @@ private struct PlugSpotView: View {
                 Button {
                     isAboutPresented = true
                 } label: {
-                    PlugSpotAudioMark()
+                    BubblePlugAudioMark()
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -305,8 +305,8 @@ private struct PlugSpotView: View {
                             .disabled(isPreparingAbletonExport)
                     }
                     Section("BubblePlug Library") {
-                        Button("Import Library Backup…", action: importPlugSpotLibrary)
-                        Button("Export Library Backup…", action: exportPlugSpotLibrary)
+                        Button("Import Library Backup…", action: importBubblePlugLibrary)
+                        Button("Export Library Backup…", action: exportBubblePlugLibrary)
                     }
                     Section("Plugin Images") {
                         Button("Manage Plugin Images…") { isMissingArtworkPresented = true }
@@ -329,7 +329,7 @@ private struct PlugSpotView: View {
             if artworkStore.isPreparing {
                 VStack(spacing: 16) {
                     Spacer()
-                    PlugSpotAudioMark()
+                    BubblePlugAudioMark()
                         .frame(width: 64, height: 64)
                     Text(artworkStore.isCapturingFirstRunImages ? "Capturing VST3 plugin images" : "Preparing plugin images")
                         .font(.title3.weight(.semibold))
@@ -359,7 +359,7 @@ private struct PlugSpotView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if didMigrateImageStartupPreference && imageStartupMode == "ask" && artworkStore.missingPluginImageCount > 0 && !catalogFamilies.isEmpty {
                 VStack(spacing: 14) {
-                    PlugSpotAudioMark().frame(width: 56, height: 56)
+                    BubblePlugAudioMark().frame(width: 56, height: 56)
                     Text("Prepare Plugin Images")
                         .font(.title3.weight(.semibold))
                     Text("\(artworkStore.missingPluginImageCount) plugin images are missing. You can capture them now or open BubblePlug and do this later.")
@@ -440,7 +440,7 @@ private struct PlugSpotView: View {
                 }
             }
             .padding(10)
-            .background(PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 9))
+            .background(BubblePlugPalette.card, in: RoundedRectangle(cornerRadius: 9))
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
@@ -537,7 +537,7 @@ private struct PlugSpotView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if isConnectionUnavailable {
                     Button(role: .destructive) {
-                        requestPlugSpotQuit()
+                        requestBubblePlugQuit()
                     } label: {
                         Label("Quit BubblePlug", systemImage: "power")
                     }
@@ -610,7 +610,7 @@ private struct PlugSpotView: View {
             Text(abletonExportError)
         }
         .background {
-            PlugSpotWindowAccessor { window in
+            BubblePlugWindowAccessor { window in
                 configureWindowControls(window)
             }
             .frame(width: 0, height: 0)
@@ -620,9 +620,9 @@ private struct PlugSpotView: View {
 
     private func migrateImageStartupPreference() {
         let defaults = UserDefaults.standard
-        let newKey = "plugspot.images.startupMode.v2"
+        let newKey = "bubbleplug.images.startupMode.v2"
         guard defaults.object(forKey: newKey) == nil else { return }
-        let previousChoice = defaults.string(forKey: "plugspot.images.startupMode")
+        let previousChoice = defaults.string(forKey: "bubbleplug.images.startupMode")
         // Earlier builds also wrote "scan" when the user requested a one-time
         // capture. Preserve an explicit defer choice, but ask once for ambiguous
         // legacy scans instead of unexpectedly opening plugin editors.
@@ -630,7 +630,7 @@ private struct PlugSpotView: View {
     }
 
     private var settingsSheet: some View {
-        PlugSpotSettingsView(
+        BubblePlugSettingsView(
             bubbleScale: $bubbleScale,
             bubbleTransparency: $bubbleTransparency,
             bubblePositionLocked: $bubblePositionLocked,
@@ -875,7 +875,7 @@ private struct PlugSpotView: View {
         return VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottomLeading) {
                 pluginArtwork(family, width: 152, height: 78)
-                LinearGradient(colors: [.clear, PlugSpotPalette.card.opacity(0.92)], startPoint: .center, endPoint: .bottom)
+                LinearGradient(colors: [.clear, BubblePlugPalette.card.opacity(0.92)], startPoint: .center, endPoint: .bottom)
                 Text(family.vendor.uppercased())
                     .font(.system(size: 8, weight: .bold, design: .rounded))
                     .tracking(1.1)
@@ -891,7 +891,7 @@ private struct PlugSpotView: View {
                     Text("PLUGIN")
                         .font(.system(size: 8, weight: .bold, design: .rounded))
                         .tracking(1.1)
-                        .foregroundStyle(PlugSpotPalette.cyan.opacity(0.9))
+                        .foregroundStyle(BubblePlugPalette.cyan.opacity(0.9))
                     Text(family.name)
                         .font(.body.weight(.semibold))
                         .lineLimit(2)
@@ -925,9 +925,9 @@ private struct PlugSpotView: View {
         }
         .padding(9)
         .frame(maxWidth: .infinity, minHeight: 174, alignment: .topLeading)
-        .background(isSelected ? PlugSpotPalette.selectedCard : PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PlugSpotPalette.iridescence.opacity(isSelected ? 0.95 : 0.18), lineWidth: isSelected ? 2 : 1))
-        .shadow(color: isSelected ? PlugSpotPalette.cyan.opacity(0.12) : .clear, radius: 12, y: 3)
+        .background(isSelected ? BubblePlugPalette.selectedCard : BubblePlugPalette.card, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(BubblePlugPalette.iridescence.opacity(isSelected ? 0.95 : 0.18), lineWidth: isSelected ? 2 : 1))
+        .shadow(color: isSelected ? BubblePlugPalette.cyan.opacity(0.12) : .clear, radius: 12, y: 3)
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .gesture(
             TapGesture(count: 2)
@@ -987,7 +987,7 @@ private struct PlugSpotView: View {
                     Text("CHAIN BUILDER")
                         .font(.system(size: 9, weight: .bold, design: .rounded))
                         .tracking(1.3)
-                        .foregroundStyle(PlugSpotPalette.cyan)
+                        .foregroundStyle(BubblePlugPalette.cyan)
                     Text("\(chainQueue.count) \(chainQueue.count == 1 ? "plugin" : "plugins") ready to insert")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.white.opacity(0.86))
@@ -1035,7 +1035,7 @@ private struct PlugSpotView: View {
                             if let family {
                                 Text(family.variants.first(where: { $0.id == entry.pluginID }).map(channelLabel(for:)) ?? "Unavailable")
                                     .font(.caption2)
-                                    .foregroundStyle(PlugSpotPalette.cyan)
+                                    .foregroundStyle(BubblePlugPalette.cyan)
                             }
                             HStack(spacing: 5) {
                                 Image(systemName: "line.3.horizontal")
@@ -1053,8 +1053,8 @@ private struct PlugSpotView: View {
                             .foregroundStyle(.secondary)
                         }
                         .padding(7)
-                        .background(PlugSpotPalette.chainTile, in: RoundedRectangle(cornerRadius: 9))
-                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(isSelected ? PlugSpotPalette.cyan : PlugSpotPalette.edge, lineWidth: isSelected ? 2 : 1))
+                        .background(BubblePlugPalette.chainTile, in: RoundedRectangle(cornerRadius: 9))
+                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(isSelected ? BubblePlugPalette.cyan : BubblePlugPalette.edge, lineWidth: isSelected ? 2 : 1))
                         .contentShape(RoundedRectangle(cornerRadius: 9))
                         .onTapGesture { selectedQueuedPluginID = entry.id }
                         .onDrag { NSItemProvider(object: entry.id.uuidString as NSString) }
@@ -1070,7 +1070,7 @@ private struct PlugSpotView: View {
                             if index < chainQueue.count - 1 {
                                 Image(systemName: "arrow.right")
                                     .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(PlugSpotPalette.cyan)
+                                    .foregroundStyle(BubblePlugPalette.cyan)
                                     .offset(x: 10)
                             }
                         }
@@ -1102,15 +1102,15 @@ private struct PlugSpotView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(PlugSpotPalette.chainShelf)
-        .overlay(alignment: .top) { Rectangle().fill(PlugSpotPalette.iridescence).frame(height: 1).opacity(0.55) }
+        .background(BubblePlugPalette.chainShelf)
+        .overlay(alignment: .top) { Rectangle().fill(BubblePlugPalette.iridescence).frame(height: 1).opacity(0.55) }
     }
 
     private var chainSetsView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("CHAIN SETS").font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2).foregroundStyle(PlugSpotPalette.cyan)
+                    Text("CHAIN SETS").font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2).foregroundStyle(BubblePlugPalette.cyan)
                     Text("Save plugin chains for reuse").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -1194,8 +1194,8 @@ private struct PlugSpotView: View {
                                 }
                             }
                             .padding(12)
-                            .background(activeChainSetID == set.id ? PlugSpotPalette.selectedCard : PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(PlugSpotPalette.edge, lineWidth: 1))
+                            .background(activeChainSetID == set.id ? BubblePlugPalette.selectedCard : BubblePlugPalette.card, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(BubblePlugPalette.edge, lineWidth: 1))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1333,7 +1333,7 @@ private struct PlugSpotView: View {
     }
 
     private var isLoadingChain: Bool {
-        loadingPluginID == "__plugspot_chain__"
+        loadingPluginID == "__bubbleplug_chain__"
     }
 
     private func selectAndQueue(_ family: PluginFamily) {
@@ -1362,7 +1362,7 @@ private struct PlugSpotView: View {
         guard !chainQueue.isEmpty, loadingPluginID == nil else { return }
         let queued = chainQueue
         activeChainSetID = nil
-        loadingPluginID = "__plugspot_chain__"
+        loadingPluginID = "__bubbleplug_chain__"
         isError = false
         status = "Loading chain…"
         Task {
@@ -1412,26 +1412,26 @@ private struct PlugSpotView: View {
         let colored = match?.coloredItemsToClear ?? 0
         let total = match?.totalBrowserItems ?? 0
         let variants = match?.mappedDevices ?? 0
-        return "This replaces all seven Collection names and clears existing color assignments across Ableton’s entire Browser, including plugins, presets, samples, folders, and other items. PlugSpot will assign its Favorites and categories to \(matched) matched plugin families (\(variants) VST3 variants). The preflight found \(colored) currently colored items out of \(total). Live will quit and reopen. Save your current Live Set if prompted. No files are changed until Live has fully closed; a backup is created before writing."
+        return "This replaces all seven Collection names and clears existing color assignments across Ableton’s entire Browser, including plugins, presets, samples, folders, and other items. BubblePlug will assign its Favorites and categories to \(matched) matched plugin families (\(variants) VST3 variants). The preflight found \(colored) currently colored items out of \(total). Live will quit and reopen. Save your current Live Set if prompted. No files are changed until Live has fully closed; a backup is created before writing."
     }
 
-    private var plugSpotSupportDirectory: URL {
+    private var bubblePlugSupportDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/BubblePlug", isDirectory: true)
     }
 
     private func prepareAbletonExport() {
         guard !isPreparingAbletonExport else { return }
         guard isLiveConnected, isLiveVersionSupported, liveVersion == "12.4.2" else {
             if isLiveConnected {
-                presentAbletonExportError("This Live version has not passed PlugSpot's compatibility check. Collection export is validated only for Live 12.4.2.")
+                presentAbletonExportError("This Live version has not passed BubblePlug's compatibility check. Collection export is validated only for Live 12.4.2.")
                 return
             }
             presentAbletonExportError("Ableton Live is not connected. Open Live and try again.")
             return
         }
         guard let localStore else {
-            presentAbletonExportError("The PlugSpot library is unavailable.")
+            presentAbletonExportError("The BubblePlug library is unavailable.")
             return
         }
         isPreparingAbletonExport = true
@@ -1443,8 +1443,8 @@ private struct PlugSpotView: View {
                 encoder.dateEncodingStrategy = .iso8601
                 let requestData = try encoder.encode(document)
                 let id = UUID().uuidString.lowercased()
-                let requestURL = plugSpotSupportDirectory.appendingPathComponent("export-preflight-\(id).json")
-                let resultURL = plugSpotSupportDirectory.appendingPathComponent("export-preflight-result-\(id).json")
+                let requestURL = bubblePlugSupportDirectory.appendingPathComponent("export-preflight-\(id).json")
+                let resultURL = bubblePlugSupportDirectory.appendingPathComponent("export-preflight-result-\(id).json")
                 try requestData.write(to: requestURL, options: .atomic)
                 defer {
                     try? FileManager.default.removeItem(at: requestURL)
@@ -1457,7 +1457,7 @@ private struct PlugSpotView: View {
                 }
                 guard preflight.missing.isEmpty else {
                     let names = preflight.missing.prefix(8).map(\.name).joined(separator: ", ")
-                    throw AbletonExportUIError.message("Export stopped without changing Ableton. These PlugSpot plugins could not be matched safely: \(names). Check their format and names, then try again.")
+                    throw AbletonExportUIError.message("Export stopped without changing Ableton. These BubblePlug plugins could not be matched safely: \(names). Check their format and names, then try again.")
                 }
                 abletonExportDocument = document
                 abletonExportPreflight = preflight
@@ -1476,7 +1476,7 @@ private struct PlugSpotView: View {
             presentAbletonExportError("The export plan expired. Run the preflight again.")
             return
         }
-        let pendingURL = plugSpotSupportDirectory.appendingPathComponent("pending-ableton-export.json")
+        let pendingURL = bubblePlugSupportDirectory.appendingPathComponent("pending-ableton-export.json")
         guard !FileManager.default.fileExists(atPath: pendingURL.path) else {
             presentAbletonExportError("Another Ableton export is already pending. Close or cancel that export before starting a new one.")
             return
@@ -1499,7 +1499,7 @@ private struct PlugSpotView: View {
                 for _ in 0..<60 {
                     try? await Task.sleep(for: .seconds(1))
                     if !FileManager.default.fileExists(atPath: pendingURL.path) { return }
-                    let socket = plugSpotSupportDirectory.appendingPathComponent("bridge.sock")
+                    let socket = bubblePlugSupportDirectory.appendingPathComponent("bridge.sock")
                     if !FileManager.default.fileExists(atPath: socket.path) { return }
                 }
                 try? FileManager.default.removeItem(at: pendingURL)
@@ -1535,7 +1535,7 @@ private struct PlugSpotView: View {
     }
 
     private func runAbletonExportWorker(arguments: [String]) async throws {
-        let worker = plugSpotSupportDirectory.appendingPathComponent("ableton-export-worker.py")
+        let worker = bubblePlugSupportDirectory.appendingPathComponent("ableton-export-worker.py")
         guard FileManager.default.fileExists(atPath: worker.path) else {
             throw AbletonExportUIError.message("The Ableton export worker is not installed. Run macos/install-launcher.sh and restart Live.")
         }
@@ -1562,7 +1562,7 @@ private struct PlugSpotView: View {
     }
 
     private func readAbletonExportResult() {
-        let resultURL = plugSpotSupportDirectory.appendingPathComponent("ableton-export-result.json")
+        let resultURL = bubblePlugSupportDirectory.appendingPathComponent("ableton-export-result.json")
         guard let data = try? Data(contentsOf: resultURL) else { return }
         try? FileManager.default.removeItem(at: resultURL)
         guard let result = try? JSONDecoder().decode(AbletonExportResult.self, from: data) else { return }
@@ -1746,8 +1746,8 @@ private struct PlugSpotView: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
                             .padding(10)
-                            .background(PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(PlugSpotPalette.iridescence.opacity(0.25), lineWidth: 1))
+                            .background(BubblePlugPalette.card, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(BubblePlugPalette.iridescence.opacity(0.25), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                         .task(id: "\(option.id)|\(liveVersion ?? "")|\(artworkStore.artworkRevision)") {
@@ -1838,7 +1838,7 @@ private struct PlugSpotView: View {
 
     private func unavailablePluginNotice(count: Int, kind: String) -> some View {
         Label(
-            "\(count) saved \(kind)\(count == 1 ? " is" : "s are") missing from Live's current catalog. PlugSpot kept the saved data.",
+            "\(count) saved \(kind)\(count == 1 ? " is" : "s are") missing from Live's current catalog. BubblePlug kept the saved data.",
             systemImage: "exclamationmark.circle"
         )
         .font(.caption)
@@ -1932,29 +1932,55 @@ private struct PlugSpotView: View {
             imageProgressPanel: imageProgressPanel
         )
         panel.title = "BubblePlug"
-        panel.backgroundColor = NSColor(PlugSpotPalette.canvas)
+        panel.backgroundColor = NSColor(BubblePlugPalette.canvas)
         panel.styleMask.remove(.closable)
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
         guard let minimizeButton = panel.standardWindowButton(.miniaturizeButton) else { return }
 
-        let target: PlugSpotWindowButtonTarget
+        // Keep the familiar traffic-light position, but use a regular button
+        // instead of AppKit's yellow miniaturize control. Its click routes
+        // directly to the bubble transition rather than window minimization.
+        let buttonTag = 0x4250
+        if let host = minimizeButton.superview {
+            let bubbleButton: NSButton
+            if let existing = host.viewWithTag(buttonTag) as? NSButton {
+                bubbleButton = existing
+            } else {
+                bubbleButton = NSButton(frame: minimizeButton.frame)
+                bubbleButton.tag = buttonTag
+                bubbleButton.isBordered = false
+                bubbleButton.title = ""
+                bubbleButton.wantsLayer = true
+                bubbleButton.layer?.backgroundColor = NSColor.systemBlue.cgColor
+                bubbleButton.layer?.cornerRadius = 6
+                bubbleButton.setAccessibilityLabel("Minimize BubblePlug to its Ableton bubble")
+                host.addSubview(bubbleButton)
+            }
+            bubbleButton.frame = minimizeButton.frame
+            bubbleButton.isHidden = false
+            minimizeButton.isHidden = true
+        }
+
+        let target: BubblePlugWindowButtonTarget
         if let current = windowButtonTarget, current.window === panel {
             target = current
         } else {
-            target = PlugSpotWindowButtonTarget(window: panel) { [weak bubbleController] window in
+            target = BubblePlugWindowButtonTarget(window: panel) { [weak bubbleController] window in
                 bubbleController?.show(minimizing: window)
             }
             windowButtonTarget = target
         }
-        minimizeButton.target = target
-        minimizeButton.action = #selector(PlugSpotWindowButtonTarget.minimizeToBubble(_:))
-        minimizeButton.toolTip = "Minimize BubblePlug to its Ableton bubble"
+        if let bubbleButton = minimizeButton.superview?.viewWithTag(buttonTag) as? NSButton {
+            bubbleButton.target = target
+            bubbleButton.action = #selector(BubblePlugWindowButtonTarget.minimizeToBubble(_:))
+            bubbleButton.toolTip = "Minimize BubblePlug to its Ableton bubble"
+        }
     }
 
     private func registerGlobalHotKey() {
         if globalHotKeyController == nil {
-            let controller = PlugSpotGlobalHotKeyController()
+            let controller = BubblePlugGlobalHotKeyController()
             controller.onPress = { [weak bubbleController] in
                 bubbleController?.showMainWindow()
             }
@@ -2115,7 +2141,7 @@ private struct PlugSpotView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func importPlugSpotLibrary() {
+    private func importBubblePlugLibrary() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
@@ -2126,10 +2152,10 @@ private struct PlugSpotView: View {
             guard let localStore else { throw LocalLibraryStoreError.open("the local library is unavailable") }
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            let document = try decoder.decode(PlugSpotLibraryDocument.self, from: Data(contentsOf: url))
+            let document = try decoder.decode(BubblePlugLibraryDocument.self, from: Data(contentsOf: url))
             try localStore.importDocument(document)
             loadLocalState()
-            status = "PlugSpot library merged. Favorites, categories, and recent history were combined."
+            status = "BubblePlug library merged. Favorites, categories, and recent history were combined."
             isError = false
         } catch {
             status = "Could not import file: \(error.localizedDescription)"
@@ -2137,10 +2163,10 @@ private struct PlugSpotView: View {
         }
     }
 
-    private func exportPlugSpotLibrary() {
+    private func exportBubblePlugLibrary() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "plugspot-library.json"
+        panel.nameFieldStringValue = "bubbleplug-library.json"
         panel.title = "Export BubblePlug Library"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
@@ -2183,7 +2209,7 @@ private struct PlugSpotView: View {
                 try localStore.saveCategory(category, replacing: oldName)
             }
             loadLocalState()
-            status = "PlugSpot categories updated."
+            status = "BubblePlug categories updated."
             isError = false
         } catch { status = error.localizedDescription; isError = true }
     }
@@ -2234,16 +2260,16 @@ private struct QueuedPlugin: Identifiable {
     var pluginID: String
 }
 
-private struct PlugSpotWindowAccessor: NSViewRepresentable {
+private struct BubblePlugWindowAccessor: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
 
-    func makeNSView(context: Context) -> PlugSpotWindowObservingView {
-        let view = PlugSpotWindowObservingView()
+    func makeNSView(context: Context) -> BubblePlugWindowObservingView {
+        let view = BubblePlugWindowObservingView()
         view.onWindow = onWindow
         return view
     }
 
-    func updateNSView(_ nsView: PlugSpotWindowObservingView, context: Context) {
+    func updateNSView(_ nsView: BubblePlugWindowObservingView, context: Context) {
         nsView.onWindow = onWindow
         if let window = nsView.window {
             nsView.notifyWindowIfNeeded(window)
@@ -2251,7 +2277,7 @@ private struct PlugSpotWindowAccessor: NSViewRepresentable {
     }
 }
 
-private final class PlugSpotWindowObservingView: NSView {
+private final class BubblePlugWindowObservingView: NSView {
     var onWindow: ((NSWindow) -> Void)?
     private var scheduledWindowID: ObjectIdentifier?
 
@@ -2275,7 +2301,7 @@ private final class PlugSpotWindowObservingView: NSView {
 }
 
 @MainActor
-private final class PlugSpotWindowButtonTarget: NSObject {
+private final class BubblePlugWindowButtonTarget: NSObject {
     weak var window: NSWindow?
     private let minimize: (NSWindow) -> Void
 
@@ -2361,7 +2387,7 @@ private final class ImageCaptureProgressPanel {
         let frontmost = NSWorkspace.shared.frontmostApplication
         let bundle = frontmost?.bundleIdentifier ?? ""
         let name = frontmost?.localizedName?.lowercased() ?? ""
-        if bundle == "com.plugspot.app" || bundle.hasPrefix("com.ableton.live") ||
+        if bundle == "com.bubbleplug.app" || bundle.hasPrefix("com.ableton.live") ||
             name.contains("ableton live") || name.contains("editorhost") || name.contains("bubbleplugcapture") {
             panel.orderFrontRegardless()
         } else {
@@ -2385,7 +2411,7 @@ private struct ImageCaptureProgressView: View {
                     .font(.system(size: 12, weight: .medium))
             }
             ProgressView(value: progress)
-                .tint(PlugSpotPalette.cyan)
+                .tint(BubblePlugPalette.cyan)
             Text(pluginName.isEmpty ? "Preparing…" : pluginName)
                 .lineLimit(1)
                 .font(.system(size: 11))
@@ -2395,11 +2421,11 @@ private struct ImageCaptureProgressView: View {
         .padding(.vertical, 11)
         .frame(width: 380, height: 82)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.05, green: 0.08, blue: 0.16)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(PlugSpotPalette.cyan.opacity(0.65)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(BubblePlugPalette.cyan.opacity(0.65)))
     }
 }
 
-private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
+private final class BubblePlugBubbleController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private var mainWindow: NSPanel?
     var mainWindowForDialogs: NSWindow? { mainWindow }
@@ -2411,14 +2437,14 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     private var lastLiveWindowFrame: NSRect?
     private var isMovingProgrammatically = false
     private var isDraggingBubble = false
-    private let sizePreferenceKey = "plugspot.bubble.scale"
-    private let transparencyPreferenceKey = "plugspot.bubble.transparency"
-    private let positionLockedPreferenceKey = "plugspot.bubble.position.locked"
-    private let positionSavedPreferenceKey = "plugspot.bubble.position.saved"
-    private let positionXPreferenceKey = "plugspot.bubble.position.x"
-    private let positionYPreferenceKey = "plugspot.bubble.position.y"
-    private let windowWidthPreferenceKey = "plugspot.window.width"
-    private let windowHeightPreferenceKey = "plugspot.window.height"
+    private let sizePreferenceKey = "bubbleplug.bubble.scale"
+    private let transparencyPreferenceKey = "bubbleplug.bubble.transparency"
+    private let positionLockedPreferenceKey = "bubbleplug.bubble.position.locked"
+    private let positionSavedPreferenceKey = "bubbleplug.bubble.position.saved"
+    private let positionXPreferenceKey = "bubbleplug.bubble.position.x"
+    private let positionYPreferenceKey = "bubbleplug.bubble.position.y"
+    private let windowWidthPreferenceKey = "bubbleplug.window.width"
+    private let windowHeightPreferenceKey = "bubbleplug.window.height"
 
     override init() {
         super.init()
@@ -2496,7 +2522,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         expanded.title = "BubblePlug"
         expanded.isFloatingPanel = true
         expanded.hidesOnDeactivate = false
-        expanded.backgroundColor = NSColor(PlugSpotPalette.canvas)
+        expanded.backgroundColor = NSColor(BubblePlugPalette.canvas)
         expanded.isReleasedWhenClosed = false
         expanded.delegate = self
         expanded.minSize = NSSize(width: 440, height: 520)
@@ -2511,7 +2537,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         // of moving the scene's NSHostingView between windows.
         mainWindow = expanded
         window.contentView = nil
-        expanded.contentView = NSHostingView(rootView: PlugSpotView(
+        expanded.contentView = NSHostingView(rootView: BubblePlugView(
             bubbleController: self,
             artworkStore: artworkStore,
             imageProgressPanel: imageProgressPanel
@@ -2727,7 +2753,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     }
 
     private func bubbleView(size: CGFloat) -> NSView {
-        let view = PlugSpotBubbleControlView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        let view = BubblePlugBubbleControlView(frame: NSRect(x: 0, y: 0, width: size, height: size))
         view.toolTip = "Open BubblePlug"
         view.isPositionLocked = isPositionLocked
         view.onActivate = { [weak self] in self?.restoreMainWindow() }
@@ -2831,7 +2857,7 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
     }
 }
 
-private final class PlugSpotBubbleControlView: NSView {
+private final class BubblePlugBubbleControlView: NSView {
     var isPositionLocked = false
     var onActivate: (() -> Void)?
     var onDrag: ((NSPoint) -> Void)?

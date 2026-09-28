@@ -11,7 +11,7 @@ import statistics
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log", type=pathlib.Path, default=pathlib.Path.home() / "Library/Application Support/PlugSpot/artwork-capture.log")
+    parser.add_argument("--log", type=pathlib.Path, default=pathlib.Path.home() / "Library/Application Support/BubblePlug/artwork-capture.log")
     parser.add_argument("--output", type=pathlib.Path, default=pathlib.Path("artifacts/artwork-scan-report.md"))
     args = parser.parse_args()
     lines = args.log.read_text().splitlines()

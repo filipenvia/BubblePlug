@@ -32,7 +32,7 @@ used as a compiler check; Live behavior was not exercised in this review.
   backup paths before changing either Ableton file; the launcher restores those
   files if export fails, and the next export attempt recovers any journal left
   behind. Live validation remains required.
-- **PlugSpot library imports now use one SQLite transaction.** Any failure
+- **BubblePlug library imports now use one SQLite transaction.** Any failure
   rolls back categories, favorites, recents and labels together.
 - **Dead plugin validation code was removed.** Existing local databases are not
   destructively migrated; any old validation table remains unused.
@@ -75,7 +75,7 @@ used as a compiler check; Live behavior was not exercised in this review.
   table. It is retained for non-destructive compatibility and is no longer read.
 - Naming is intentionally mixed while the rename is in progress: visible UI is
   BubblePlug, while bundle ID, executable, SQLite path, launcher, and Remote
-  Script remain PlugSpot. Keep this compatibility mapping documented until an
+  Script remain BubblePlug. Keep this compatibility mapping documented until an
   installer/update migration is ready.
 - The unused `setMainWindow(_:)` helper was removed during the follow-up cleanup.
 - Existing docs correctly mark mixer, export, lifecycle, and resource use as

@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "PlugSpot",
+    name: "BubblePlug",
     platforms: [.macOS(.v13)],
     products: [
-        .library(name: "PlugSpotCore", targets: ["PlugSpotCore"]),
-        .executable(name: "PlugSpot", targets: ["PlugSpotApp"]),
+        .library(name: "BubblePlugCore", targets: ["BubblePlugCore"]),
+        .executable(name: "BubblePlug", targets: ["BubblePlugApp"]),
     ],
     targets: [
-        .target(name: "PlugSpotCore"),
-        .executableTarget(name: "PlugSpotApp", dependencies: ["PlugSpotCore"], resources: [.process("Resources")]),
+        .target(name: "BubblePlugCore"),
+        .executableTarget(name: "BubblePlugApp", dependencies: ["BubblePlugCore"], resources: [.process("Resources")]),
     ]
 )

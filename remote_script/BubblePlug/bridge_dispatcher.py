@@ -1,4 +1,4 @@
-"""JSON Lines request validation and dispatch for the local PlugSpot bridge."""
+"""JSON Lines request validation and dispatch for the local BubblePlug bridge."""
 
 import json
 

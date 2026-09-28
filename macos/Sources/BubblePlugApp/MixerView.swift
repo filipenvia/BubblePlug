@@ -1,5 +1,5 @@
 import SwiftUI
-import PlugSpotCore
+import BubblePlugCore
 import CryptoKit
 import Foundation
 
@@ -131,7 +131,7 @@ struct MixerView: View {
 
     private func loadRecoverySnapshots() {
         let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot/MixerSnapshots", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/BubblePlug/MixerSnapshots", isDirectory: true)
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.contentModificationDateKey],
@@ -154,7 +154,7 @@ struct MixerView: View {
 
     private func saveSnapshot(_ fresh: MixerSnapshot) throws {
         let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/PlugSpot/MixerSnapshots", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/BubblePlug/MixerSnapshots", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let identity = fresh.setPath.isEmpty ? fresh.setID : fresh.setPath
         let digest = SHA256.hash(data: Data(identity.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -286,7 +286,7 @@ private struct MixerChannelStrip: View {
         .padding(9)
         .frame(width: 168)
         .frame(minHeight: 300, alignment: .top)
-        .background(PlugSpotPalette.card, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(PlugSpotPalette.iridescence.opacity(0.24)))
+        .background(BubblePlugPalette.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BubblePlugPalette.iridescence.opacity(0.24)))
     }
 }
