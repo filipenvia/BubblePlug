@@ -13,10 +13,12 @@ versions and dates may change until the first public release.
   Recording permission guidance. Clean product screenshots remain outstanding.
 - Removed the unverified preset name from Mixer; final visual confirmation in
   Ableton Live remains part of release QA.
-- Fixed **Load Images Now** silently enabling capture on every future launch.
-  Automatic startup capture now requires opting in through Settings, and catalog
-  refresh never starts capture. The one-time load command leaves that preference
-  unchanged.
+- Made the first-launch image choice persistent: **Load Missing Images** enables
+  automatic startup capture, while **Open Without Loading** suppresses the
+  prompt. The main menu can change to automatic loading and start it immediately;
+  the Settings one-time scan does not change the preference. Catalog refresh
+  never starts image capture. Ambiguous legacy one-time-scan preferences are
+  reset to ask once instead of triggering an unexpected scan after updating.
 - Added a Universal macOS build path for Intel and Apple Silicon.
 - Added persistent Chain Sets and Ableton `.adg` rack export for supported
   serial chains.

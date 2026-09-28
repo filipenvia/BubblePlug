@@ -92,6 +92,7 @@ private struct PlugSpotView: View {
     @State private var scope: PluginListScope = .all
     @State private var isMixerVisible = false
     @State private var isAboutPresented = false
+    @State private var didMigrateImageStartupPreference = false
     @AppStorage("plugspot.displayMode") private var displayModeRaw = PluginDisplayMode.list.rawValue
     @AppStorage("plugspot.cachedLiveVersion") private var cachedLiveVersion = ""
     @AppStorage("plugspot.cachedCatalogJSON") private var cachedCatalogJSON = Data()
@@ -99,7 +100,7 @@ private struct PlugSpotView: View {
     @AppStorage("plugspot.bubble.scale") private var bubbleScale = 1.0
     @AppStorage("plugspot.bubble.transparency") private var bubbleTransparency = 0.0
     @AppStorage("plugspot.bubble.position.locked") private var bubblePositionLocked = false
-    @AppStorage("plugspot.images.startupMode") private var imageStartupMode = "ask"
+    @AppStorage("plugspot.images.startupMode.v2") private var imageStartupMode = "ask"
     @AppStorage("plugspot.shortcut.keyCode") private var shortcutKeyCode = 35
     @AppStorage("plugspot.shortcut.modifiers") private var shortcutModifiers = 0x1800
     @AppStorage("plugspot.shortcut.label") private var shortcutLabel = "⌃⌥P"
@@ -310,7 +311,7 @@ private struct PlugSpotView: View {
                     Section("Plugin Images") {
                         Button("Manage Plugin Images…") { isMissingArtworkPresented = true }
                             .disabled(artworkStore.isPreparing || artworkStore.isCapturingFirstRunImages || catalogFamilies.isEmpty)
-                        Button("Load All Plugin Images…", action: loadAllPluginImages)
+                        Button("Load Missing Images…", action: loadMissingImagesAndRememberPreference)
                             .disabled(artworkStore.isPreparing || artworkStore.isCapturingFirstRunImages || catalogFamilies.isEmpty)
                     }
                 } label: {
@@ -356,7 +357,7 @@ private struct PlugSpotView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if imageStartupMode == "ask" && artworkStore.missingPluginImageCount > 0 && !catalogFamilies.isEmpty {
+            } else if didMigrateImageStartupPreference && imageStartupMode == "ask" && artworkStore.missingPluginImageCount > 0 && !catalogFamilies.isEmpty {
                 VStack(spacing: 14) {
                     PlugSpotAudioMark().frame(width: 56, height: 56)
                     Text("Prepare Plugin Images")
@@ -370,7 +371,7 @@ private struct PlugSpotView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     HStack {
-                        Button("Load Images Now", action: loadAllPluginImages)
+                        Button("Load Missing Images", action: loadMissingImagesAndRememberPreference)
                         .buttonStyle(.borderedProminent)
                         Button("Open Without Loading") { imageStartupMode = "defer" }
                             .buttonStyle(.bordered)
@@ -549,6 +550,8 @@ private struct PlugSpotView: View {
             }
         }
         .task {
+            migrateImageStartupPreference()
+            didMigrateImageStartupPreference = true
             loadLocalState()
             registerGlobalHotKey()
             if !didInitializeWindow {
@@ -613,6 +616,17 @@ private struct PlugSpotView: View {
             .frame(width: 0, height: 0)
         }
         .modifier(BubblePlugSurface())
+    }
+
+    private func migrateImageStartupPreference() {
+        let defaults = UserDefaults.standard
+        let newKey = "plugspot.images.startupMode.v2"
+        guard defaults.object(forKey: newKey) == nil else { return }
+        let previousChoice = defaults.string(forKey: "plugspot.images.startupMode")
+        // Earlier builds also wrote "scan" when the user requested a one-time
+        // capture. Preserve an explicit defer choice, but ask once for ambiguous
+        // legacy scans instead of unexpectedly opening plugin editors.
+        defaults.set(previousChoice == "defer" ? "defer" : "ask", forKey: newKey)
     }
 
     private var settingsSheet: some View {
@@ -743,6 +757,11 @@ private struct PlugSpotView: View {
             cachedOnly: false,
             autoCapture: true
         )
+    }
+
+    private func loadMissingImagesAndRememberPreference() {
+        imageStartupMode = "scan"
+        loadAllPluginImages()
     }
 
     private func configureScreenRecordingPermissionPresentation() {

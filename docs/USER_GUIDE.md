@@ -38,13 +38,15 @@ release instructions will be updated after the distribution method is finalized.
 
 On first launch, BubblePlug offers to prepare plugin images or open without
 them. By default, opening BubblePlug and refreshing the Live catalog do not
-launch plugin editors. To opt in to automatic capture at startup, select **Load
-missing images automatically** in **Settings → Plugin Images**. The **Load All
-Plugin Images** command starts a one-time scan and does not change this setting.
-The helper opens missing VST3 editors one at a time and captures their windows.
-It can take a while, and some plug-ins may not display a usable editor image.
-Screen Recording permission is used for this capture flow. You can assign
-images manually in **Manage Plugin Images**.
+launch plugin editors. The first-launch choice is remembered: **Load Missing
+Images** enables automatic capture at startup, while **Open Without Loading**
+suppresses the prompt. Change this later in **Settings → Plugin Images** or
+choose **Load Missing Images** in the main menu to enable it and start now.
+**Load All Plugin Images** in Settings starts a one-time scan without changing
+the startup choice. The helper opens missing VST3 editors one at a time and
+captures their windows. It can take a while, and some plug-ins may not display a
+usable editor image. Screen Recording permission is used for this capture flow.
+You can assign images manually in **Manage Plugin Images**.
 
 BubblePlug stores its library and images locally. Artwork collection is not
 uploaded to a shared service by this build.

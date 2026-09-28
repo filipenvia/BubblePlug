@@ -67,12 +67,15 @@ the snapshot.
 
 Plugin artwork uses exact VST3 snapshots and clearly named local image files.
 On first setup, BubblePlug offers to prepare missing VST3 images or open without
-them. By default, launch and catalog refresh do not open plugin editors. You can
-opt in to automatic capture at startup in **Settings → Plugin Images**. The
-**Load All Plugin Images** command starts a one-time scan without changing that
-preference. The bundled helper opens editors one at a time, captures them with
-BubblePlug's Screen Recording permission, and caches thumbnails without adding
-tracks to Live. Images can also be assigned in **Manage Plugin Images**.
+them. By default, launch and catalog refresh do not open plugin editors. The
+first-launch choice is remembered: **Load Missing Images** enables automatic
+capture at startup, while **Open Without Loading** suppresses the prompt. Change
+this later in **Settings → Plugin Images** or choose **Load Missing Images** in
+the main menu to enable it and start now. **Load All Plugin Images** in Settings
+starts a one-time scan without changing the preference. The bundled helper
+opens editors one at a time, captures them with BubblePlug's Screen Recording
+permission, and caches thumbnails without adding tracks to Live. Images can also
+be assigned in **Manage Plugin Images**.
 
 Artwork is central to BubblePlug, but local coverage depends on the user's
 installed plugins. Inactive, damaged or incompletely installed plugins may not

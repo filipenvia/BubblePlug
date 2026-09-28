@@ -126,7 +126,7 @@ struct PlugSpotSettingsView: View {
                     Text("Load missing images automatically").tag("scan")
                     Text("Open without loading").tag("defer")
                 }
-                Text("Load All Plugin Images starts a one-time scan and does not change this startup setting. Catalog refresh never starts image capture.")
+                Text("Load Missing Images in the prompt or main menu remembers automatic loading at startup. Open Without Loading remembers that choice. Load All Plugin Images starts a one-time scan. Catalog refresh never starts image capture.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("Plugins that need activation or have never been opened may show setup, activation, or error screens instead of their editor. Replace those images in Manage Images.")
