@@ -22,8 +22,8 @@ the user and is not a pending test in this checklist.
 
 - [ ] **IMG-01 — Defer image preparation.** On a clean BubblePlug profile, defer
   artwork preparation at first launch. Confirm the app clearly reports that
-  artwork is incomplete, remains usable as intended, and offers a way to start
-  the full image load later.
+  artwork is incomplete, remains usable as intended, offers a way to start the
+  full image load later, and does not open plugin editors on its own.
 - [ ] **IMG-02 — Start and resume a full image load.** Start the full load and
   interrupt it partway through. Reopen BubblePlug and resume. Confirm completed
   images are retained, only unresolved plugins are retried, and progress/counts
@@ -45,9 +45,9 @@ the user and is not a pending test in this checklist.
   while a VST3 editor is opening, record the plugin name and requested access;
   verify denying it does not block BubblePlug's core workflow.
 - [ ] **IMG-06 — No repeat scan on ordinary launch.** Complete or defer image
-  preparation, minimize to the bubble, reopen the main window, and restart Live.
-  Confirm ordinary navigation and reopening do not start a full scan; only new
-  or unresolved plugins enter the queue.
+  preparation, interrupt a scan, reopen BubblePlug and refresh the Live catalog.
+  Confirm neither ordinary startup nor catalog refresh launches plugin editors;
+  only the explicit **Load All Plugin Images** action starts image capture.
 
 ## Startup, bubble, and window behavior
 

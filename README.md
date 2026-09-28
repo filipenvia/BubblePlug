@@ -40,11 +40,15 @@ See the [user guide](docs/USER_GUIDE.md), [changelog](CHANGELOG.md), and
 
 ## Screenshots
 
-The repository currently has the BubblePlug logo and banner, but not a clean,
-current set of product screenshots. Those will be added after a demonstration
-session that does not expose a user's Live project, plugin paths or account
-details. See [branding assets](docs/branding/README.md) for the logo and GitHub
-banner.
+These screenshots show BubblePlug connected to a blank Ableton Live 12.4.2 set.
+
+![Plugin library with local artwork](docs/screenshots/plugin-library.png)
+
+![Chain Sets view ready to save the first set](docs/screenshots/chain-sets.png)
+
+![Live Mixer showing tracks, returns and master](docs/screenshots/live-mixer.png)
+
+See [branding assets](docs/branding/README.md) for the logo and GitHub banner.
 
 ## Current state
 
@@ -62,11 +66,13 @@ state such as a Kontakt library/instrument is not guaranteed to be available in
 the snapshot.
 
 Plugin artwork uses exact VST3 snapshots and clearly named local image files.
-On first setup, BubblePlug opens missing VST3 editors one at a time in a bundled
-image helper, captures its window with BubblePlug's Screen Recording permission,
-and caches the thumbnail. This does not add
-tracks to Live. Later launches process only missing or new plugins. Images can
-also be assigned in **Missing Images**.
+On first setup, BubblePlug offers to prepare missing VST3 images or open without
+them. Capturing images is explicit: BubblePlug does not launch plugin editors or
+resume an interrupted image scan automatically at startup. Choose **Load All
+Plugin Images** when you want to run the bundled image helper. It opens editors
+one at a time, captures them with BubblePlug's Screen Recording permission, and
+caches thumbnails without adding tracks to Live. Images can also be assigned in
+**Manage Plugin Images**.
 
 Artwork is central to BubblePlug, but local coverage depends on the user's
 installed plugins. Inactive, damaged or incompletely installed plugins may not

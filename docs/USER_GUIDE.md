@@ -36,11 +36,14 @@ release instructions will be updated after the distribution method is finalized.
 
 ## First launch and plugin artwork
 
-On first launch, BubblePlug may offer to prepare plugin images. This process
-opens missing VST3 editors one at a time in its bundled helper and captures the
-editor window. It can take a while, and some plug-ins may not display a usable
-editor image. Screen Recording permission is used for this capture flow. You
-can defer image preparation and start it later from the image controls.
+On first launch, BubblePlug offers to prepare plugin images or open without
+them. Capturing images is always started by the user from **Load All Plugin
+Images**; opening BubblePlug, refreshing the Live catalog, or relaunching after
+an interrupted scan does not launch plugin editors automatically. The helper
+opens missing VST3 editors one at a time and captures their windows. It can take
+a while, and some plug-ins may not display a usable editor image. Screen
+Recording permission is used for this capture flow. You can assign images
+manually in **Manage Plugin Images**.
 
 BubblePlug stores its library and images locally. Artwork collection is not
 uploaded to a shared service by this build.
@@ -104,8 +107,6 @@ but capture still fails, quit and reopen BubblePlug after changing the setting.
 
 ## Screenshots
 
-Current product screenshots are not included yet. They will be added after a
-clean demonstration session is captured. The planned set covers the plugin
-library, chain queue, Chain Sets, mixer and first-run image setup. Screenshots
-must not expose Live project names, plugin file paths, account details or
-unrelated desktop content.
+The repository screenshots show BubblePlug connected to a blank Ableton Live
+12.4.2 set. They cover the plugin library, Chain Sets view and Live Mixer. They
+contain no user project names, plugin paths or unrelated desktop content.

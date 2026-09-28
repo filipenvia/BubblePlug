@@ -13,6 +13,9 @@ versions and dates may change until the first public release.
   Recording permission guidance. Clean product screenshots remain outstanding.
 - Removed the unverified preset name from Mixer; final visual confirmation in
   Ableton Live remains part of release QA.
+- Fixed image capture restarting on every launch after a user had previously
+  selected **Load Images Now**. Startup and catalog refresh now use cached
+  artwork only; full editor capture requires an explicit user action.
 - Added a Universal macOS build path for Intel and Apple Silicon.
 - Added persistent Chain Sets and Ableton `.adg` rack export for supported
   serial chains.

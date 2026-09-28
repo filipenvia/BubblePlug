@@ -719,8 +719,10 @@ private struct PlugSpotView: View {
             plugins: catalogFamilies.map { ($0.id, $0.preferredVariant) },
             liveVersion: version,
             using: library,
-            cachedOnly: imageStartupMode != "scan",
-            autoCapture: imageStartupMode == "scan"
+            // Catalog refresh and app startup must never launch VST editors.
+            // Full image capture is an explicit user action from the image controls.
+            cachedOnly: true,
+            autoCapture: false
         )
     }
 
