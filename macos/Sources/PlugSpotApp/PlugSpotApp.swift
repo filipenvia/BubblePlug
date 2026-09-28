@@ -6,9 +6,15 @@ import UniformTypeIdentifiers
 
 @main
 struct PlugSpotApp: App {
+    // The startup scene is replaced by a custom NSPanel that hosts a second
+    // PlugSpotView. Keep capture state app-scoped so both views cannot start
+    // independent scans for the same catalog.
+    @StateObject private var artworkStore = PluginArtworkStore()
+    @State private var imageProgressPanel = ImageCaptureProgressPanel()
+
     var body: some Scene {
         WindowGroup {
-            PlugSpotView()
+            PlugSpotView(artworkStore: artworkStore, imageProgressPanel: imageProgressPanel)
                 .frame(minWidth: 440, minHeight: 520)
         }
         .windowResizability(.contentSize)
@@ -79,7 +85,8 @@ private struct AboutBubblePlugView: View {
 
 private struct PlugSpotView: View {
     @State private var bubbleController: PlugSpotBubbleController
-    @StateObject private var artworkStore = PluginArtworkStore()
+    @StateObject private var artworkStore: PluginArtworkStore
+    private let imageProgressPanel: ImageCaptureProgressPanel
     @State private var didInitializeWindow = false
     @State private var windowButtonTarget: PlugSpotWindowButtonTarget?
     @State private var scope: PluginListScope = .all
@@ -131,7 +138,6 @@ private struct PlugSpotView: View {
     @State private var isSettingsPresented = false
     @State private var isMissingArtworkPresented = false
     @State private var artworkManagerShowsImages = false
-    @State private var imageProgressPanel = ImageCaptureProgressPanel()
     @State private var shortcutStatus = ""
     @State private var globalHotKeyController: PlugSpotGlobalHotKeyController?
     @State private var showAbletonExportConfirmation = false
@@ -143,8 +149,14 @@ private struct PlugSpotView: View {
     private let library = AbletonLibrary()
     private let localStore: LocalLibraryStore? = try? LocalLibraryStore()
 
-    init(bubbleController: PlugSpotBubbleController = PlugSpotBubbleController()) {
+    init(
+        bubbleController: PlugSpotBubbleController = PlugSpotBubbleController(),
+        artworkStore: PluginArtworkStore,
+        imageProgressPanel: ImageCaptureProgressPanel
+    ) {
         _bubbleController = State(initialValue: bubbleController)
+        _artworkStore = StateObject(wrappedValue: artworkStore)
+        self.imageProgressPanel = imageProgressPanel
     }
 
     private var pluginFamilies: [PluginFamily] {
@@ -702,6 +714,7 @@ private struct PlugSpotView: View {
     }
 
     private func prepareArtworkForCatalog(version: String) {
+        configureScreenRecordingPermissionPresentation()
         artworkStore.prepare(
             plugins: catalogFamilies.map { ($0.id, $0.preferredVariant) },
             liveVersion: version,
@@ -714,12 +727,28 @@ private struct PlugSpotView: View {
     private func loadAllPluginImages() {
         guard let liveVersion, !catalogFamilies.isEmpty,
               !artworkStore.isPreparing, !artworkStore.isCapturingFirstRunImages else { return }
+        configureScreenRecordingPermissionPresentation()
         imageStartupMode = "scan"
         let entries = catalogFamilies.map { ($0.id, $0.preferredVariant) }
         if artworkStore.missingPluginImageCount == catalogFamilies.count {
             artworkStore.prepare(plugins: entries, liveVersion: liveVersion, force: true, using: library)
         } else {
             artworkStore.retryFirstRunImageCapture(plugins: entries, library: library)
+        }
+    }
+
+    private func configureScreenRecordingPermissionPresentation() {
+        let controller = bubbleController
+        let progressPanel = imageProgressPanel
+        artworkStore.willRequestScreenRecordingPermission = {
+            progressPanel.suspendForSystemPermissionPrompt()
+            controller.prepareForSystemPermissionPrompt()
+        }
+        artworkStore.didRequestScreenRecordingPermission = { granted in
+            if granted {
+                progressPanel.resumeAfterSystemPermissionPrompt()
+            }
+            controller.finishSystemPermissionPrompt(granted: granted)
         }
     }
 
@@ -1874,7 +1903,11 @@ private struct PlugSpotView: View {
 
     @MainActor
     private func configureWindowControls(_ window: NSWindow) {
-        let panel = bubbleController.prepareStartupWindow(window)
+        let panel = bubbleController.prepareStartupWindow(
+            window,
+            artworkStore: artworkStore,
+            imageProgressPanel: imageProgressPanel
+        )
         panel.title = "BubblePlug"
         panel.backgroundColor = NSColor(PlugSpotPalette.canvas)
         panel.styleMask.remove(.closable)
@@ -2238,6 +2271,7 @@ private final class PlugSpotWindowButtonTarget: NSObject {
 private final class ImageCaptureProgressPanel {
     private var panel: NSPanel?
     private var isActive = false
+    private var isSuspendedForSystemPrompt = false
     private var activationObserver: NSObjectProtocol?
 
     init() {
@@ -2289,8 +2323,18 @@ private final class ImageCaptureProgressPanel {
         panel?.orderOut(nil)
     }
 
+    func suspendForSystemPermissionPrompt() {
+        isSuspendedForSystemPrompt = true
+        panel?.orderOut(nil)
+    }
+
+    func resumeAfterSystemPermissionPrompt() {
+        isSuspendedForSystemPrompt = false
+        refreshVisibility()
+    }
+
     private func refreshVisibility() {
-        guard isActive, let panel else { return }
+        guard isActive, !isSuspendedForSystemPrompt, let panel else { return }
         let frontmost = NSWorkspace.shared.frontmostApplication
         let bundle = frontmost?.bundleIdentifier ?? ""
         let name = frontmost?.localizedName?.lowercased() ?? ""
@@ -2395,8 +2439,28 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         show(minimizing: mainWindow)
     }
 
+    func prepareForSystemPermissionPrompt() {
+        // The expanded window can be promoted above normal macOS dialogs while
+        // Live is frontmost. Lower it and remove the bubble so the Screen
+        // Recording authorization prompt can appear unobstructed.
+        panel?.orderOut(nil)
+        mainWindow?.level = .normal
+        mainWindow?.isFloatingPanel = false
+    }
+
+    func finishSystemPermissionPrompt(granted: Bool) {
+        guard granted, let mainWindow else { return }
+        let abletonIsFrontmost = Self.isAbleton(NSWorkspace.shared.frontmostApplication)
+        mainWindow.level = abletonIsFrontmost ? .screenSaver : .normal
+        mainWindow.isFloatingPanel = abletonIsFrontmost
+    }
+
     @discardableResult
-    func prepareStartupWindow(_ window: NSWindow) -> NSPanel {
+    func prepareStartupWindow(
+        _ window: NSWindow,
+        artworkStore: PluginArtworkStore,
+        imageProgressPanel: ImageCaptureProgressPanel
+    ) -> NSPanel {
         if let mainWindow { return mainWindow }
 
         let sourceFrame = window.frame
@@ -2424,7 +2488,11 @@ private final class PlugSpotBubbleController: NSObject, NSWindowDelegate {
         // of moving the scene's NSHostingView between windows.
         mainWindow = expanded
         window.contentView = nil
-        expanded.contentView = NSHostingView(rootView: PlugSpotView(bubbleController: self))
+        expanded.contentView = NSHostingView(rootView: PlugSpotView(
+            bubbleController: self,
+            artworkStore: artworkStore,
+            imageProgressPanel: imageProgressPanel
+        ))
         window.orderOut(nil)
 
         restoreWindowSize(expanded)

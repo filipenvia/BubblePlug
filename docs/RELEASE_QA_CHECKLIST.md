@@ -32,8 +32,10 @@ the user and is not a pending test in this checklist.
   Confirm the correct image remains attached to the correct item.
 - [ ] **IMG-05 — Permission behavior.** Test Screen Recording permission when
   granted, denied, and already granted. Confirm retry uses the existing grant
-  without repeatedly opening the system permission prompt. Confirm no Contacts
-  or Calendar permission is requested.
+  without repeatedly opening the system permission prompt. Confirm BubblePlug's
+  own code does not request Contacts or Calendar. If a privacy prompt appears
+  while a VST3 editor is opening, record the plugin name and requested access;
+  verify denying it does not block BubblePlug's core workflow.
 - [ ] **IMG-06 — No repeat scan on ordinary launch.** Complete or defer image
   preparation, minimize to the bubble, reopen the main window, and restart Live.
   Confirm ordinary navigation and reopening do not start a full scan; only new

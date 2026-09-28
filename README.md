@@ -47,6 +47,20 @@ release requirement. BubblePlug must identify unresolved items, preserve valid
 images, allow manual assignment/retry, and avoid repeated full scans during
 ordinary use.
 
+## macOS privacy prompts during image capture
+
+On the development Mac, macOS displayed requests for Calendar, Contacts,
+Documents, Desktop and removable-volume access while plugin editors were being
+captured. BubblePlug's own code does not request Calendar or Contacts access or
+browse those personal folders. The image helper loads third-party VST3 code
+inside BubblePlug's app identity, so a plug-in or its vendor framework may
+trigger a macOS prompt that is labelled **BubblePlug**. These permissions are
+not requirements for BubblePlug's library, mixer or Ableton integration. Only
+Screen Recording is needed for image capture. Users can deny unexpected access;
+that may limit the requesting plug-in's own feature, but is not needed for
+BubblePlug itself. If a prompt appears, noting the plug-in currently being
+captured will help identify its source.
+
 ## Requirements
 
 - macOS 13 or later;

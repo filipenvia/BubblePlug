@@ -69,10 +69,18 @@ a Kontakt instrument or library selection.
 ## Permissions and privacy
 
 Screen Recording is required for plugin editor image capture. BubblePlug does
-not need Contacts or Calendar access. Artwork, favorites, categories, Chain
-Sets and snapshots remain local in this development build. Remove personal
-paths, account names and project details before posting logs or screenshots to
-GitHub.
+not use Contacts or Calendar. During image capture, a third-party plugin or its
+vendor framework can request access to Calendar, Contacts, Documents, Desktop
+or a removable volume. Since the plugin is hosted by BubblePlug's bundled image
+helper, macOS may label that request **BubblePlug**. These are not BubblePlug
+requirements; only Screen Recording is needed for image capture. You can deny
+unexpected requests. Denial may affect a feature of the plugin that requested
+access, but not BubblePlug's core library, mixer or Ableton integration. If a
+prompt appears, note which plugin was opening so its source can be investigated.
+
+Artwork, favorites, categories, Chain Sets and snapshots remain local in this
+development build. Remove personal paths, account names and project details
+before posting logs or screenshots to GitHub.
 
 ## Troubleshooting
 

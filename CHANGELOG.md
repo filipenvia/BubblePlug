@@ -10,10 +10,15 @@ versions and dates may change until the first public release.
   serial chains.
 - Added local mixer recovery snapshots and offline snapshot browsing.
 - Added first-run plugin artwork preparation through a bundled VST3 helper.
+- Shared artwork-capture state between the startup scene and expanded window to
+  prevent duplicate first-run scans.
+- Documented that privacy prompts observed during plugin capture may come from
+  hosted third-party plugins; BubblePlug itself does not request Contacts or
+  Calendar access.
 - Updated the interface with the BubblePlug visual identity.
 - Removed external plug-in validation from the load flow.
-- Known limitations: artwork coverage is incomplete; `.adg` output still needs
-  end-to-end validation in Live; Apple Silicon hardware validation is pending.
+- Known limitations: artwork coverage is incomplete and Apple Silicon hardware
+  validation is pending.
 
 ## 0.1.0 — development build
 

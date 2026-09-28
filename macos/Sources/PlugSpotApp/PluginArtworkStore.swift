@@ -10,6 +10,8 @@ import UniformTypeIdentifiers
 @MainActor
 final class PluginArtworkStore: ObservableObject {
     private static let screenRecordingRequestKey = "BubblePlugScreenRecordingPermissionRequested"
+    var willRequestScreenRecordingPermission: (() -> Void)?
+    var didRequestScreenRecordingPermission: ((Bool) -> Void)?
     @Published private(set) var pluginImages: [String: NSImage] = [:]
     @Published private(set) var vendorImages: [String: NSImage] = [:]
     @Published private(set) var preparationProgress: Double = 1
@@ -149,10 +151,14 @@ final class PluginArtworkStore: ObservableObject {
         _ plugins: [(id: String, item: PluginItem)],
         library: AbletonLibrary
     ) async {
-        if !CGPreflightScreenCaptureAccess(),
-           !UserDefaults.standard.bool(forKey: Self.screenRecordingRequestKey) {
+        if CGPreflightScreenCaptureAccess() {
+            didRequestScreenRecordingPermission?(true)
+        } else if !UserDefaults.standard.bool(forKey: Self.screenRecordingRequestKey) {
             UserDefaults.standard.set(true, forKey: Self.screenRecordingRequestKey)
+            willRequestScreenRecordingPermission?()
             _ = CGRequestScreenCaptureAccess()
+            let isAuthorized = CGPreflightScreenCaptureAccess()
+            didRequestScreenRecordingPermission?(isAuthorized)
         }
         guard CGPreflightScreenCaptureAccess() else {
             captureStatus = "Screen Recording permission is required to photograph plugin editors. Enable BubblePlug in System Settings, relaunch it, then retry."
