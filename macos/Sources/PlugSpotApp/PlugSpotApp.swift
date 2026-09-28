@@ -285,7 +285,9 @@ private struct PlugSpotView: View {
                     Label(isMixerVisible ? "Plugins" : "Mixer", systemImage: isMixerVisible ? "puzzlepiece.extension" : "slider.horizontal.3")
                 }
                 .help(isMixerVisible ? "Show Plugin Library" : "Show Visual Mixer")
-                Button(action: refreshLibrary) {
+                Button {
+                    refreshLibrary()
+                } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .help("Refresh Ableton Live plugin list")
@@ -368,7 +370,7 @@ private struct PlugSpotView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     HStack {
-                        Button("Load Images Now") { imageStartupMode = "scan"; loadAllPluginImages() }
+                        Button("Load Images Now", action: loadAllPluginImages)
                         .buttonStyle(.borderedProminent)
                         Button("Open Without Loading") { imageStartupMode = "defer" }
                             .buttonStyle(.bordered)
@@ -558,13 +560,16 @@ private struct PlugSpotView: View {
                     catalogFamilies = PluginFamily.group(cachedPlugins)
                     liveVersion = cachedLiveVersion
                     if scannerModification(for: cachedLiveVersion) <= cachedScannerModification {
-                        prepareArtworkForCatalog(version: cachedLiveVersion)
+                        prepareArtworkForCatalog(
+                            version: cachedLiveVersion,
+                            allowStartupCapture: imageStartupMode == "scan"
+                        )
                     }
                     isLiveVersionSupported = true
                     status = "Using saved Ableton Live catalog · \(catalogFamilies.count) plugins. Refresh to scan Live."
                     readAbletonExportResult()
                 } else {
-                    refreshLibrary()
+                    refreshLibrary(allowStartupImageCapture: true)
                 }
             }
             startConnectionMonitor()
@@ -713,16 +718,15 @@ private struct PlugSpotView: View {
         }
     }
 
-    private func prepareArtworkForCatalog(version: String) {
+    private func prepareArtworkForCatalog(version: String, allowStartupCapture: Bool = false) {
         configureScreenRecordingPermissionPresentation()
+        let shouldCapture = allowStartupCapture && imageStartupMode == "scan"
         artworkStore.prepare(
             plugins: catalogFamilies.map { ($0.id, $0.preferredVariant) },
             liveVersion: version,
             using: library,
-            // Catalog refresh and app startup must never launch VST editors.
-            // Full image capture is an explicit user action from the image controls.
-            cachedOnly: true,
-            autoCapture: false
+            cachedOnly: !shouldCapture,
+            autoCapture: shouldCapture
         )
     }
 
@@ -730,13 +734,15 @@ private struct PlugSpotView: View {
         guard let liveVersion, !catalogFamilies.isEmpty,
               !artworkStore.isPreparing, !artworkStore.isCapturingFirstRunImages else { return }
         configureScreenRecordingPermissionPresentation()
-        imageStartupMode = "scan"
         let entries = catalogFamilies.map { ($0.id, $0.preferredVariant) }
-        if artworkStore.missingPluginImageCount == catalogFamilies.count {
-            artworkStore.prepare(plugins: entries, liveVersion: liveVersion, force: true, using: library)
-        } else {
-            artworkStore.retryFirstRunImageCapture(plugins: entries, library: library)
-        }
+        artworkStore.prepare(
+            plugins: entries,
+            liveVersion: liveVersion,
+            force: true,
+            using: library,
+            cachedOnly: false,
+            autoCapture: true
+        )
     }
 
     private func configureScreenRecordingPermissionPresentation() {
@@ -1601,7 +1607,7 @@ private struct PlugSpotView: View {
                         refreshLibrary()
                     } else if !hasObservedConnection && !isLoadingLibrary &&
                                 (plugins.isEmpty || (liveVersion.map { scannerModification(for: $0) } ?? 0) > cachedScannerModification) {
-                        refreshLibrary()
+                        refreshLibrary(allowStartupImageCapture: imageStartupMode == "scan")
                     }
                     hasObservedConnection = true
                 } catch {
@@ -1830,7 +1836,7 @@ private struct PlugSpotView: View {
         .padding(.bottom, 5)
     }
 
-    private func refreshLibrary() {
+    private func refreshLibrary(allowStartupImageCapture: Bool = false) {
         guard !isLoadingLibrary else {
             refreshAfterCurrentLoad = true
             return
@@ -1855,7 +1861,10 @@ private struct PlugSpotView: View {
                 let refreshedPlugins = try await library.plugins()
                 plugins = refreshedPlugins
                 catalogFamilies = PluginFamily.group(refreshedPlugins)
-                prepareArtworkForCatalog(version: detectedLiveVersion)
+                prepareArtworkForCatalog(
+                    version: detectedLiveVersion,
+                    allowStartupCapture: allowStartupImageCapture
+                )
                 cachedLiveVersion = detectedLiveVersion
                 cachedScannerModification = scannerModification(for: detectedLiveVersion)
                 if let encodedCatalog = try? JSONEncoder().encode(refreshedPlugins) {

@@ -46,8 +46,11 @@ the user and is not a pending test in this checklist.
   verify denying it does not block BubblePlug's core workflow.
 - [ ] **IMG-06 — No repeat scan on ordinary launch.** Complete or defer image
   preparation, interrupt a scan, reopen BubblePlug and refresh the Live catalog.
-  Confirm neither ordinary startup nor catalog refresh launches plugin editors;
-  only the explicit **Load All Plugin Images** action starts image capture.
+  Confirm the default startup choice and catalog refresh do not launch plugin
+  editors. Choose **Load Images Now** and confirm that it runs once without
+  changing the startup preference. Separately opt in to **Load missing images
+  automatically** and confirm capture starts on startup only, not on a later
+  manual catalog refresh.
 
 ## Startup, bubble, and window behavior
 
