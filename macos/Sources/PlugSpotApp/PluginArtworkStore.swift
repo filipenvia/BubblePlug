@@ -29,6 +29,7 @@ final class PluginArtworkStore: ObservableObject {
     private var vendorImageOrder: [String] = []
     private var manifest = ArtworkManifest()
     private var preparationKey = ""
+    private var requiresArtworkDiscovery = false
     private var currentLiveVersion = ""
     private var preparationTask: Task<ArtworkManifest, Never>?
     private var capturingPlugins: Set<String> = []
@@ -83,22 +84,41 @@ final class PluginArtworkStore: ObservableObject {
         vendorImageOrder.removeAll()
         pluginImages.removeAll()
         vendorImages.removeAll()
-        if !force, let saved = PluginArtworkExtractor.loadManifest(), saved.key == key {
-            manifest = saved
-            missingPluginImageCount = plugins.filter { saved.plugins[$0.id] == nil }.count
-            isPreparing = false
-            preparationProgress = 1
-            if autoCapture, let library { startFirstRunImageCapture(plugins: plugins, library: library) }
-            return
+        if !force, let saved = PluginArtworkExtractor.loadManifest() {
+            let pluginIDs = Set(plugins.map(\.id))
+            let vendorKeys = Set(plugins.compactMap { $0.item.vendor }.map(PluginArtworkStore.normalized))
+            if saved.key == key {
+                manifest = saved
+                requiresArtworkDiscovery = false
+                missingPluginImageCount = plugins.filter { saved.plugins[$0.id] == nil }.count
+                isPreparing = false
+                preparationProgress = 1
+                if autoCapture, let library { startFirstRunImageCapture(plugins: plugins, library: library) }
+                return
+            }
+            if cachedOnly {
+                manifest = ArtworkManifest(
+                    key: key,
+                    plugins: saved.plugins.filter { pluginIDs.contains($0.key) },
+                    vendors: saved.vendors.filter { vendorKeys.contains($0.key) }
+                )
+                requiresArtworkDiscovery = true
+                missingPluginImageCount = plugins.filter { manifest.plugins[$0.id] == nil }.count
+                isPreparing = false
+                preparationProgress = 1
+                return
+            }
         }
         if cachedOnly {
             manifest = ArtworkManifest(key: key)
+            requiresArtworkDiscovery = true
             missingPluginImageCount = plugins.count
             isPreparing = false
             preparationProgress = 1
             return
         }
         isPreparing = true
+        requiresArtworkDiscovery = true
         preparationProgress = 0
         let worker = Task.detached(priority: .utility) {
             PluginArtworkExtractor.prepare(plugins: plugins, liveVersion: liveVersion, key: key) { progress in
@@ -113,6 +133,7 @@ final class PluginArtworkStore: ObservableObject {
             guard preparationKey == key else { return }
             preparationTask = nil
             manifest = completed
+            requiresArtworkDiscovery = false
             missingPluginImageCount = plugins.filter { completed.plugins[$0.id] == nil }.count
             isPreparing = false
             preparationProgress = 1
@@ -123,6 +144,15 @@ final class PluginArtworkStore: ObservableObject {
     func retryFirstRunImageCapture(plugins: [(id: String, item: PluginItem)], library: AbletonLibrary) {
         guard !isPreparing, !isCapturingFirstRunImages else { return }
         startFirstRunImageCapture(plugins: plugins, library: library)
+    }
+
+    func loadMissingPluginImages(plugins: [(id: String, item: PluginItem)], liveVersion: String, library: AbletonLibrary) {
+        guard !isPreparing, !isCapturingFirstRunImages else { return }
+        if requiresArtworkDiscovery {
+            prepare(plugins: plugins, liveVersion: liveVersion, force: true, using: library, autoCapture: true)
+        } else {
+            retryFirstRunImageCapture(plugins: plugins, library: library)
+        }
     }
 
     func cancelFirstRunImageCapture() {
@@ -545,8 +575,14 @@ private enum PluginArtworkExtractor {
         progress: @escaping @Sendable (Double) -> Void
     ) -> ArtworkManifest {
         var manifest = ArtworkManifest(key: key)
-        progress(0.01)
+        let activePluginIDs = Set(plugins.map(\.id))
         let vendorGroups = Dictionary(grouping: plugins) { PluginArtworkStore.normalized($0.item.vendor ?? "") }
+        let activeVendorKeys = Set(vendorGroups.keys.filter { !$0.isEmpty })
+        if let saved = loadManifest() {
+            manifest.plugins = saved.plugins.filter { activePluginIDs.contains($0.key) }
+            manifest.vendors = saved.vendors.filter { activeVendorKeys.contains($0.key) }
+        }
+        progress(0.01)
         let supportImages: [SupportImage] = []
         progress(0.05)
         let total = max(plugins.count + vendorGroups.count, 1)
@@ -554,6 +590,11 @@ private enum PluginArtworkExtractor {
 
         for entry in plugins {
             if Task<Never, Never>.isCancelled { return manifest }
+            if manifest.plugins[entry.id] != nil {
+                completed += 1
+                progress(0.05 + 0.95 * Double(completed) / Double(total))
+                continue
+            }
             let vendor = entry.item.vendor ?? ""
             let found = findSupportPluginArtwork(in: supportImages, name: entry.item.name, vendor: vendor)
                 ?? (try? AbletonPluginScanner.resourceBundleURL(for: entry.item, liveVersion: liveVersion))
@@ -566,6 +607,11 @@ private enum PluginArtworkExtractor {
         }
         for (vendorKey, entries) in vendorGroups where !vendorKey.isEmpty {
             if Task<Never, Never>.isCancelled { return manifest }
+            if manifest.vendors[vendorKey] != nil {
+                completed += 1
+                progress(0.05 + 0.95 * Double(completed) / Double(total))
+                continue
+            }
             let vendor = entries[0].item.vendor ?? ""
             let found = findSupportVendorLogo(in: supportImages, vendor: vendor)
                 ?? entries.prefix(16).lazy.compactMap { try? AbletonPluginScanner.resourceBundleURL(for: $0.item, liveVersion: liveVersion) }

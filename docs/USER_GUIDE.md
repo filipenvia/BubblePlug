@@ -42,11 +42,12 @@ launch plugin editors. The first-launch choice is remembered: **Load Missing
 Images** enables automatic capture at startup, while **Open Without Loading**
 suppresses the prompt. Change this later in **Settings → Plugin Images** or
 choose **Load Missing Images** in the main menu to enable it and start now.
-**Load All Plugin Images** in Settings starts a one-time scan without changing
-the startup choice. The helper opens missing VST3 editors one at a time and
-captures their windows. It can take a while, and some plug-ins may not display a
-usable editor image. Screen Recording permission is used for this capture flow.
-You can assign images manually in **Manage Plugin Images**.
+**Capture Missing Images Once** in Settings runs an incremental scan without
+changing the startup choice. Existing images are kept, and only unresolved
+plugins are searched or captured. The helper opens missing VST3 editors one at a
+time and captures their windows. It can take a while, and some plug-ins may not
+display a usable editor image. Screen Recording permission is used for this
+capture flow. You can assign images manually in **Manage Plugin Images**.
 
 BubblePlug stores its library and images locally. Artwork collection is not
 uploaded to a shared service by this build.

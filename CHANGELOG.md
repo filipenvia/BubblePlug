@@ -16,8 +16,9 @@ versions and dates may change until the first public release.
 - Made the first-launch image choice persistent: **Load Missing Images** enables
   automatic startup capture, while **Open Without Loading** suppresses the
   prompt. The main menu can change to automatic loading and start it immediately;
-  the Settings one-time scan does not change the preference. Catalog refresh
-  never starts image capture. Ambiguous legacy one-time-scan preferences are
+  **Capture Missing Images Once** in Settings does not change the preference and
+  only searches/captures unresolved plugins. Catalog refresh never starts image
+  capture. Ambiguous legacy one-time-scan preferences are
   reset to ask once instead of triggering an unexpected scan after updating.
 - Added a Universal macOS build path for Intel and Apple Silicon.
 - Added persistent Chain Sets and Ableton `.adg` rack export for supported

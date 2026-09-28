@@ -71,8 +71,10 @@ them. By default, launch and catalog refresh do not open plugin editors. The
 first-launch choice is remembered: **Load Missing Images** enables automatic
 capture at startup, while **Open Without Loading** suppresses the prompt. Change
 this later in **Settings → Plugin Images** or choose **Load Missing Images** in
-the main menu to enable it and start now. **Load All Plugin Images** in Settings
-starts a one-time scan without changing the preference. The bundled helper
+the main menu to enable it and start now. **Capture Missing Images Once** in
+Settings runs a one-time incremental scan without changing the preference; images
+already in the library are retained and only unresolved plugins are searched or
+captured. The bundled helper
 opens editors one at a time, captures them with BubblePlug's Screen Recording
 permission, and caches thumbnails without adding tracks to Live. Images can also
 be assigned in **Manage Plugin Images**.

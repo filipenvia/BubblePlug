@@ -749,14 +749,7 @@ private struct PlugSpotView: View {
               !artworkStore.isPreparing, !artworkStore.isCapturingFirstRunImages else { return }
         configureScreenRecordingPermissionPresentation()
         let entries = catalogFamilies.map { ($0.id, $0.preferredVariant) }
-        artworkStore.prepare(
-            plugins: entries,
-            liveVersion: liveVersion,
-            force: true,
-            using: library,
-            cachedOnly: false,
-            autoCapture: true
-        )
+        artworkStore.loadMissingPluginImages(plugins: entries, liveVersion: liveVersion, library: library)
     }
 
     private func loadMissingImagesAndRememberPreference() {

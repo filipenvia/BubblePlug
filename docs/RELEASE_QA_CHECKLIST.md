@@ -50,8 +50,8 @@ the user and is not a pending test in this checklist.
   editors. Choose **Open Without Loading**, restart, and confirm the prompt stays
   dismissed. Then choose **Load Missing Images** and confirm the preference is
   remembered and unresolved images resume on startup. Confirm a manual catalog
-  refresh never starts capture. Check that **Load All Plugin Images** in Settings
-  runs once without changing the startup preference.
+  refresh never starts capture. Check that **Capture Missing Images Once** in
+  Settings preserves completed artwork and leaves the startup preference alone.
 
 ## Startup, bubble, and window behavior
 
