@@ -13,8 +13,10 @@ Control Surface script to request plugin insertion and read mixer information.
 
 ## Install from source
 
-The current package is for local testing and is unsigned. It is not yet a
-notarized, public-ready installer.
+There is no signed, public-ready installer yet. The package built here is for
+local testing and is unsigned and not notarized. Building it requires macOS
+Command Line Tools or Xcode, Git, CMake, and an internet connection the first
+time so the pinned Steinberg VST3 SDK can be downloaded.
 
 1. Download or clone this repository.
 2. Open Terminal and change to the repository directory.
@@ -24,7 +26,7 @@ notarized, public-ready installer.
    ./macos/build-pkg.sh
    ```
 
-4. Open `build/BubblePlug-0.1.0.pkg` and follow Installer.
+4. Open the generated `build/BubblePlug-0.1.0.pkg` and follow Installer.
 5. In Ableton Live, open **Settings → Link, Tempo & MIDI** and choose
    **PlugSpot** under **Control Surface** if it is not already selected.
 6. Restart Live so it loads the Control Surface.
@@ -82,6 +84,11 @@ Artwork, favorites, categories, Chain Sets and snapshots remain local in this
 development build. Remove personal paths, account names and project details
 before posting logs or screenshots to GitHub.
 
+BubblePlug only needs Screen Recording for live plugin-editor image capture.
+The first prompt may appear behind Ableton or BubblePlug; check for an existing
+System Settings dialog before retrying. If Screen Recording is already enabled
+but capture still fails, quit and reopen BubblePlug after changing the setting.
+
 ## Troubleshooting
 
 - **BubblePlug does not connect:** confirm Live is running, PlugSpot is selected
@@ -97,6 +104,8 @@ before posting logs or screenshots to GitHub.
 
 ## Screenshots
 
-Product screenshots will be added here after a clean demonstration session is
-captured. Screenshots should show the main library, chain queue, mixer and setup
-steps without exposing user projects, plugin paths or account details.
+Current product screenshots are not included yet. They will be added after a
+clean demonstration session is captured. The planned set covers the plugin
+library, chain queue, Chain Sets, mixer and first-run image setup. Screenshots
+must not expose Live project names, plugin file paths, account details or
+unrelated desktop content.

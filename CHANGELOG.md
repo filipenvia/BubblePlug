@@ -5,6 +5,12 @@ versions and dates may change until the first public release.
 
 ## Unreleased
 
+- Improved the GitHub landing page with a build/install quick start, feature
+  overview, release status and direct links to the guide, roadmap and changelog.
+- Added structured bug-report and feature-request forms with prompts to redact
+  private paths, Live Set details and credentials.
+- Clarified build prerequisites, unsigned-package limitations and Screen
+  Recording permission guidance. Clean product screenshots remain outstanding.
 - Added a Universal macOS build path for Intel and Apple Silicon.
 - Added persistent Chain Sets and Ableton `.adg` rack export for supported
   serial chains.

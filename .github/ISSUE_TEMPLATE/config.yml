@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation and user guide
+    url: https://github.com/filipenvia/BubblePlug/blob/main/docs/USER_GUIDE.md
+    about: Check setup, permissions, artwork capture and troubleshooting.
+  - name: Current roadmap
+    url: https://github.com/filipenvia/BubblePlug/blob/main/ROADMAP.md
+    about: Review planned features and outstanding release work.

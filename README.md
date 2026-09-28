@@ -6,6 +6,16 @@ BubblePlug is a native macOS companion for Ableton Live. It searches Live's VST3
 catalog, organizes plugins locally, and asks Live to load them on the selected
 track. The interface is in English; project notes are in Portuguese.
 
+> **Pre-release software:** BubblePlug is still being tested. There is no signed
+> public installer yet. The current package is intended for local testing, not
+> for a production installation.
+
+**[Installation and setup](docs/USER_GUIDE.md#install-from-source)** ·
+**[User guide](docs/USER_GUIDE.md)** ·
+**[Changelog](CHANGELOG.md)** ·
+**[Roadmap](ROADMAP.md)** ·
+**[Report a bug](https://github.com/filipenvia/BubblePlug/issues/new?template=bug_report.yml)**
+
 The app uses a midnight-blue theme with cyan accents and subtle iridescent
 borders, inspired by its soap-bubble logo. The library, chain builder, mixer,
 settings and category editor share the same palette. Branding assets and the
@@ -15,8 +25,26 @@ The technical project name remains **PlugSpot** for existing launcher, Remote
 Script, bundle identifier and user-data compatibility.
 
 See the [user guide](docs/USER_GUIDE.md), [changelog](CHANGELOG.md), and
-[roadmap](ROADMAP.md). This repository is pre-release; the package currently
-available from a local build is for testing and is not signed or notarized.
+[roadmap](ROADMAP.md) for setup, current limitations and planned work.
+
+## What BubblePlug does
+
+- Finds VST3 plugins already indexed by Ableton Live and browses them by name,
+  manufacturer, favorites and local categories.
+- Uses one click to add a plugin to a temporary chain and a double-click to
+  insert it on Live's selected track.
+- Saves Chain Sets locally and exports supported chains as Ableton `.adg` racks.
+- Provides a floating bubble, a Live mixer view and recovery snapshots stored
+  outside the Live Set.
+- Prepares plugin artwork locally. Artwork is not uploaded to a shared service.
+
+## Screenshots
+
+The repository currently has the BubblePlug logo and banner, but not a clean,
+current set of product screenshots. Those will be added after a demonstration
+session that does not expose a user's Live project, plugin paths or account
+details. See [branding assets](docs/branding/README.md) for the logo and GitHub
+banner.
 
 ## Current state
 
@@ -68,6 +96,28 @@ captured will help identify its source.
   with a compatibility warning in the app;
 - PlugSpot Remote Script installed as a Live Control Surface;
 - VST3 plugins indexed by Live.
+
+## Build and install
+
+Building from source requires the macOS Command Line Tools or Xcode, Git, and
+CMake. The build script downloads the pinned Steinberg VST3 SDK on its first
+run. A working internet connection is needed for that initial build.
+
+```sh
+git clone https://github.com/filipenvia/BubblePlug.git
+cd BubblePlug
+./macos/build-pkg.sh
+open build/BubblePlug-0.1.0.pkg
+```
+
+The package is **unsigned and not notarized**. macOS may block it or show a
+security warning. Signing and notarization are not planned for the first
+distribution. Follow the [full installation and setup guide](docs/USER_GUIDE.md)
+for Ableton configuration, first launch, artwork permissions and troubleshooting.
+
+To build without creating the installer, run `./macos/build-app.sh`. The default
+build is Universal (`x86_64` + `arm64`); Apple Silicon runtime testing is still
+pending. See [development setup](docs/DEVELOPMENT.md) before changing the code.
 
 The build script supports **x86_64**, **arm64**, and **Universal** app bundles.
 The default build cross-compiles both architectures into `build/PlugSpot.app`;
@@ -158,3 +208,14 @@ See [PlugSpot_PROJECT_PLAN.md](PlugSpot_PROJECT_PLAN.md) for the implementation
 audit and ordered remaining work. Architecture, development notes, and the
 implemented IPC contract are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), and [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
+## Contributing and support
+
+The project license has not yet been selected, so the repository is not yet
+presented as open-source and contributions are not invited under an assumed
+license. For now, use the issue forms to report reproducible bugs or propose
+features. Include macOS version, Mac architecture, Ableton Live version and
+steps to reproduce. Remove project names, personal paths, credentials and other
+private information from screenshots and logs. Permission prompts that appear
+while a plugin is opening should include the plugin name; third-party plugin
+code may trigger prompts labelled BubblePlug.
