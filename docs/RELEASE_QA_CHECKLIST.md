@@ -19,10 +19,13 @@ the user and is not a pending test in this checklist.
 - The first post-removal reinstall exposed macOS Installer relocating the app
   into a development copy under Desktop. The package now marks its app bundle
   non-relocatable and the clean reinstall succeeded at `/Applications`.
-- **Still untested:** a separate clean macOS account and a custom Ableton User
-  Library location. The package currently installs the Remote Script only to
-  the default User Library. BubblePlug has no dedicated uninstaller; removal
-  was tested manually while preserving user data.
+- **Still untested:** a separate clean macOS account and custom or external
+  Ableton User Library installation. The installer now reads Live's saved
+  `Library.cfg` path and places **Uninstall BubblePlug.command** beside the app
+  in `/Applications`. The earlier uninstaller missed the app bundle nested in
+  `/Applications/BubblePlug.localized`; the fixed removal and full-data-purge
+  paths have not yet been exercised. Earlier removal was tested manually while
+  preserving user data.
 
 ## Automated checks completed remotely
 

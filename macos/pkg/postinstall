@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_PATH="/Applications/BubblePlug.app"
+APP_PATH=""
 PAYLOAD="/Library/Application Support/BubblePlug/InstallerPayload"
 CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
 
@@ -12,23 +12,66 @@ fi
 
 USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/sed 's/^[^:]*: //')"
 USER_GROUP="$(/usr/bin/id -gn "$CONSOLE_USER")"
-REMOTE_DIR="$USER_HOME/Music/Ableton/User Library/Remote Scripts/BubblePlug"
 SUPPORT_DIR="$USER_HOME/Library/Application Support/BubblePlug"
 /bin/mkdir -p "$SUPPORT_DIR" "$USER_HOME/Library/Caches/BubblePlug"
 
-/bin/mkdir -p "$REMOTE_DIR"
-/usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' \
-  "$PAYLOAD/Remote Scripts/BubblePlug/" "$REMOTE_DIR/"
-/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$REMOTE_DIR"
+for candidate in \
+  /Applications/BubblePlug.app \
+  /Applications/BubblePlug/BubblePlug.app \
+  /Applications/BubblePlug.localized/BubblePlug.app; do
+  if [[ -d "$candidate" ]] && [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$candidate/Contents/Info.plist" 2>/dev/null || true)" == "com.bubbleplug.app" ]]; then
+    APP_PATH="$candidate"
+    break
+  fi
+done
+if [[ -z "$APP_PATH" ]]; then
+  echo "Could not find BubblePlug.app in /Applications; the Ableton launcher was not configured."
+  exit 1
+fi
+
+INSTALLED_LIBRARIES="$SUPPORT_DIR/installed-user-libraries.txt"
+: > "$INSTALLED_LIBRARIES"
+while IFS= read -r USER_LIBRARY; do
+  [[ -n "$USER_LIBRARY" ]] || continue
+  case "$USER_LIBRARY" in
+    /Volumes/*)
+      VOLUME_NAME="${USER_LIBRARY#/Volumes/}"
+      VOLUME_NAME="${VOLUME_NAME%%/*}"
+      VOLUME_ROOT="/Volumes/$VOLUME_NAME"
+      if ! /sbin/mount | /usr/bin/grep -Fq " on $VOLUME_ROOT ("; then
+        echo "Skipping the unmounted Ableton User Library volume: $VOLUME_ROOT"
+        continue
+      fi
+      ;;
+  esac
+  if [[ ! -d "$USER_LIBRARY" && "$USER_LIBRARY" == /Volumes/* ]]; then
+    echo "Skipping unavailable Ableton User Library: $USER_LIBRARY"
+    continue
+  fi
+  REMOTE_DIR="$USER_LIBRARY/Remote Scripts/BubblePlug"
+  /bin/mkdir -p "$REMOTE_DIR"
+  /usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' \
+    "$PAYLOAD/Remote Scripts/BubblePlug/" "$REMOTE_DIR/"
+  /usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$REMOTE_DIR"
+  printf '%s\n' "$USER_LIBRARY" >> "$INSTALLED_LIBRARIES"
+done < <(/usr/bin/python3 "$PAYLOAD/ableton-user-libraries.py" "$USER_HOME")
 
 HOME="$USER_HOME" \
 BUBBLEPLUG_APP_PATH="$APP_PATH" \
 BUBBLEPLUG_WORKER_SOURCE="$PAYLOAD/ableton-export-worker.py" \
   /bin/zsh "$PAYLOAD/configure-launcher.sh"
 
-/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$SUPPORT_DIR" "$USER_HOME/Library/Caches/BubblePlug" "$REMOTE_DIR"
+UNINSTALL_COMMAND="$(/usr/bin/dirname "$APP_PATH")/Uninstall BubblePlug.command"
+/bin/cat > "$UNINSTALL_COMMAND" <<'EOF_UNINSTALL'
+#!/bin/bash
+exec /usr/bin/sudo "/Library/Application Support/BubblePlug/Uninstaller/uninstall.sh" "$@"
+EOF_UNINSTALL
+/bin/chmod 755 "$UNINSTALL_COMMAND"
+
+/usr/sbin/chown -R "$CONSOLE_USER:$USER_GROUP" "$SUPPORT_DIR" "$USER_HOME/Library/Caches/BubblePlug"
 /bin/rm -rf "$PAYLOAD"
 /bin/rmdir "/Library/Application Support/BubblePlug" 2>/dev/null || true
 
 echo "BubblePlug installed. Restart Ableton Live and select BubblePlug under Control Surface."
+echo "Uninstaller: $UNINSTALL_COMMAND"
 exit 0

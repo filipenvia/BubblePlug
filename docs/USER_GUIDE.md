@@ -13,6 +13,7 @@ paths.
 
 - [Requirements](#requirements)
 - [Install from source](#install-from-source)
+- [Uninstall](#uninstall)
 - [Connect BubblePlug to Live](#connect-bubbleplug-to-live)
 - [First launch and plugin artwork](#first-launch-and-plugin-artwork)
 - [Browse and load plugins](#browse-and-load-plugins)
@@ -47,8 +48,9 @@ to build BubblePlug; they are not runtime dependencies of an already-built app.
    ```
 
 4. Open `build/BubblePlug-0.1.0.pkg` and follow the Installer steps. It installs
-   BubblePlug in `/Applications` and the BubblePlug Control Surface in the default
-   Ableton User Library location.
+   BubblePlug in `/Applications` and reads Ableton Live's saved User Library
+   location to install the BubblePlug Control Surface there. If that library is
+   on an external drive, connect and mount it before installing.
 5. Open Live and go to **Settings → Link, Tempo & MIDI**. In a free Control
    Surface row, choose **BubblePlug**. Select the matching **BubblePlug** input and
    output ports if Live does not select them automatically.
@@ -67,11 +69,29 @@ choose **Open Anyway** for BubblePlug, then confirm. Do not disable Gatekeeper
 globally. See [Apple's instructions](https://support.apple.com/102445) for the
 current per-app override flow.
 
-The package currently installs the Control Surface to the default path
-`~/Music/Ableton/User Library/Remote Scripts/BubblePlug`. If Live uses a custom
-User Library location, install/configure the Remote Script for that location
-before selecting the Control Surface. Custom-location installation is not yet
-automated by this package.
+The package reads the User Library location saved by Live in its local
+`Library.cfg` preferences. When preferences for multiple Live versions exist,
+it installs into each distinct configured library. If no saved location can be
+read, it falls back to `~/Music/Ableton/User Library`. External libraries must
+be mounted while installing; unavailable external volumes are skipped.
+
+## Uninstall
+
+The installer places **Uninstall BubblePlug.command** in the same Applications
+folder as BubblePlug. Quit Live and BubblePlug, then double-click that command
+file. It opens a Terminal menu with these choices:
+
+- Remove the app and Ableton integration while preserving BubblePlug data.
+- Remove the app and erase BubblePlug's local library, images, categories,
+  Chain Sets, snapshots, export backups, caches, settings and privacy records.
+- Cancel.
+
+The full erase option requires typing `DELETE BUBBLEPLUG DATA` before it runs.
+It removes BubblePlug's own saved Categories and other local data. If an export
+backup exists, it can also restore Ableton Live's Collection colors to their
+state before the first BubblePlug export. That restore replaces current Live
+database/preferences files and can undo later Collection changes made in Live.
+Without a backup, Live's current Collection colors remain in place.
 
 ## Connect BubblePlug to Live
 

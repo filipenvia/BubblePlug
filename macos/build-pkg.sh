@@ -6,7 +6,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP="${ROOT_DIR}/build/BubblePlug.app"
 PKGROOT="${ROOT_DIR}/build/pkgroot"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRIPT_DIR/Resources/Info.plist")"
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRIPT_DIR/Resources/Info.plist")"
 PACKAGE_ID="com.bubbleplug.pkg"
 COMPONENT_PKG="${ROOT_DIR}/build/BubblePlug-component.pkg"
 PKG="${ROOT_DIR}/build/BubblePlug-${VERSION}.pkg"
@@ -20,6 +19,7 @@ DISTRIBUTION="${ROOT_DIR}/build/BubblePlug-Distribution.xml"
 /bin/mkdir -p \
   "$PKGROOT/Applications" \
   "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/Remote Scripts" \
+  "$PKGROOT/Library/Application Support/BubblePlug/Uninstaller" \
   "$RESOURCES"
 /usr/bin/ditto "$APP" "$PKGROOT/Applications/BubblePlug.app"
 /usr/bin/rsync -a --exclude='._*' --exclude='.DS_Store' "$ROOT_DIR/remote_script/BubblePlug/" \
@@ -28,6 +28,12 @@ DISTRIBUTION="${ROOT_DIR}/build/BubblePlug-Distribution.xml"
   "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/ableton-export-worker.py"
 /bin/cp "$SCRIPT_DIR/configure-launcher.sh" \
   "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/configure-launcher.sh"
+/bin/cp "$SCRIPT_DIR/ableton-user-libraries.py" \
+  "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload/ableton-user-libraries.py"
+/bin/cp "$SCRIPT_DIR/uninstall.sh" \
+  "$PKGROOT/Library/Application Support/BubblePlug/Uninstaller/uninstall.sh"
+/bin/cp "$SCRIPT_DIR/ableton-user-libraries.py" \
+  "$PKGROOT/Library/Application Support/BubblePlug/Uninstaller/ableton-user-libraries.py"
 
 /usr/bin/find "$PKGROOT/Library/Application Support/BubblePlug/InstallerPayload" \
   -name '._*' -type f -delete

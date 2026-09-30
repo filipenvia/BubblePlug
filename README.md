@@ -160,11 +160,11 @@ In Live, select **BubblePlug** under **Settings → Link, Tempo & MIDI → Contr
 Surface** if it is not already selected.
 
 `build-pkg.sh` creates `build/BubblePlug-0.1.0.pkg`. The package installs the
-Universal app to `/Applications/BubblePlug.app`, copies the BubblePlug Remote
-Script into the logged-in user's default Ableton User Library, and configures
-the lifecycle launcher and export worker. Restart Live after installation so
-it loads the Control Surface. The package is unsigned for public distribution
-and is currently intended for local clean-install testing.
+Universal app to `/Applications`, reads Ableton's saved User Library path,
+copies the BubblePlug Remote Script there, and configures the lifecycle launcher
+and export worker. It also places **Uninstall BubblePlug.command** beside the
+app. Restart Live after installation so it loads the Control Surface. The
+package is unsigned and intended for local clean-install testing.
 
 `install-launcher.sh` remains available for development checkouts; it installs
 the Remote Script and launcher against `build/BubblePlug.app`.
@@ -183,11 +183,13 @@ inspect existing mixer snapshots. They are stored in
 
 ## Known gaps before a release
 
-- Package installation, upgrade, reinstall, and manual removal have passed on
-  the reference account; its user library and snapshots remained intact. A
-  separate clean macOS account and custom Ableton User Library path are still
-  untested. The installer uses the default path and no dedicated uninstaller
-  exists yet. See the [QA record](docs/RELEASE_QA_CHECKLIST.md).
+- Package installation, upgrade, and reinstall passed on the reference account.
+  The installer now reads Ableton's saved User Library path and includes a
+  two-choice uninstaller. The earlier uninstaller missed the app inside its
+  `/Applications/BubblePlug.localized` folder; the corrected removal and full
+  data purge still need testing. Custom or external libraries also need testing.
+  See the
+  [QA record](docs/RELEASE_QA_CHECKLIST.md).
 
 The screenshot-based setup and usage guide is in
 [docs/USER_GUIDE.md](docs/USER_GUIDE.md). Manual Ableton workflows and
